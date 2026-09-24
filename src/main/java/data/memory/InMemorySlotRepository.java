@@ -7,7 +7,9 @@ import java.util.UUID;
 import model.consultation.ConsultationSlot;
 
 public final class InMemorySlotRepository extends InMemoryRepository<ConsultationSlot> implements SlotRepository {
-    public InMemorySlotRepository() { super(ConsultationSlot::id); }
+    public InMemorySlotRepository() { this(new Object()); }
+
+    InMemorySlotRepository(Object lock) { super(ConsultationSlot::id, lock); }
 
     @Override
     public List<ConsultationSlot> findByTutorId(UUID tutorId) {

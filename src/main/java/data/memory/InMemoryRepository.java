@@ -13,21 +13,33 @@ import java.util.function.Function;
 abstract class InMemoryRepository<T> implements Repository<T> {
     private final Map<UUID, T> entities = new LinkedHashMap<>();
     private final Function<T, UUID> idOf;
+    protected final Object lock;
 
-    InMemoryRepository(Function<T, UUID> idOf) { this.idOf = idOf; }
-
-    @Override
-    public synchronized T save(T entity) {
-        Objects.requireNonNull(entity, "entity");
-        entities.put(idOf.apply(entity), entity);
-        return entity;
+    InMemoryRepository(Function<T, UUID> idOf, Object lock) {
+        this.idOf = idOf;
+        this.lock = Objects.requireNonNull(lock, "lock");
     }
 
     @Override
-    public synchronized Optional<T> findById(UUID id) {
-        return Optional.ofNullable(entities.get(Objects.requireNonNull(id, "id")));
+    public T save(T entity) {
+        synchronized (lock) {
+            Objects.requireNonNull(entity, "entity");
+            entities.put(idOf.apply(entity), entity);
+            return entity;
+        }
     }
 
     @Override
-    public synchronized List<T> findAll() { return List.copyOf(entities.values()); }
+    public Optional<T> findById(UUID id) {
+        synchronized (lock) {
+            return Optional.ofNullable(entities.get(Objects.requireNonNull(id, "id")));
+        }
+    }
+
+    @Override
+    public List<T> findAll() {
+        synchronized (lock) {
+            return List.copyOf(entities.values());
+        }
+    }
 }
