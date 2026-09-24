@@ -30,6 +30,6 @@ restart. Each role currently opens a placeholder workspace with a sign-out butto
 platform's runtime dependencies. This is a development distribution, not the final
 cross-platform release JAR required by the assignment.
 
-See [Foundation design](docs/Foundation.md) for repository contracts, integration
-boundaries, assumptions, and remaining decisions. The assignment requirements and
-current team plan are preserved in PROJECT_REQUIREMENTS.md and PROJECT_PLAN.md.
+The in-memory repositories are temporary development storage. Person B will replace
+the application's storage with a tested persistence implementation before release;
+the repository interfaces remain, and the fakes can continue to support tests.
