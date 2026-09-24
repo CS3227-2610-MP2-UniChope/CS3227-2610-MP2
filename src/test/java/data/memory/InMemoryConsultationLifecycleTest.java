@@ -16,7 +16,7 @@ class InMemoryConsultationLifecycleTest {
     private final Repositories repositories = InMemoryRepositories.create();
 
     @Test
-    void completesActiveBookingAndBookedSlotTogether() {
+    void completeActiveBooking_activeBookedPair_completesBothRecords() {
         UUID tutorId = UUID.randomUUID();
         ConsultationSlot slot = new ConsultationSlot(UUID.randomUUID(), tutorId, UUID.randomUUID(),
                 Instant.EPOCH, Instant.EPOCH.plusSeconds(1800), SlotStatus.BOOKED);
@@ -35,13 +35,13 @@ class InMemoryConsultationLifecycleTest {
     }
 
     @Test
-    void rejectsMissingBooking() {
+    void completeActiveBooking_missingBooking_rejectsRequest() {
         assertThrows(IllegalArgumentException.class,
                 () -> repositories.lifecycle().completeActiveBooking(UUID.randomUUID(), UUID.randomUUID()));
     }
 
     @Test
-    void rejectsBookingWhoseSlotIsMissing() {
+    void completeActiveBooking_missingSlot_rejectsRequest() {
         Booking booking = storeBooking(UUID.randomUUID(), BookingStatus.ACTIVE);
 
         assertThrows(IllegalArgumentException.class,
@@ -49,7 +49,7 @@ class InMemoryConsultationLifecycleTest {
     }
 
     @Test
-    void rejectsBookingOwnedByAnotherTutor() {
+    void completeActiveBooking_otherTutorBooking_rejectsRequest() {
         ConsultationSlot slot = storeSlot(UUID.randomUUID(), SlotStatus.BOOKED);
         Booking booking = storeBooking(slot.id(), BookingStatus.ACTIVE);
 
@@ -58,7 +58,7 @@ class InMemoryConsultationLifecycleTest {
     }
 
     @Test
-    void rejectsBookingThatIsNotActive() {
+    void completeActiveBooking_nonActiveBooking_rejectsRequest() {
         UUID tutorId = UUID.randomUUID();
         ConsultationSlot slot = storeSlot(tutorId, SlotStatus.BOOKED);
         Booking booking = storeBooking(slot.id(), BookingStatus.CANCELLED);
@@ -68,7 +68,7 @@ class InMemoryConsultationLifecycleTest {
     }
 
     @Test
-    void rejectsBookingWhoseSlotIsNotBooked() {
+    void completeActiveBooking_nonBookedSlot_rejectsRequest() {
         UUID tutorId = UUID.randomUUID();
         ConsultationSlot slot = storeSlot(tutorId, SlotStatus.AVAILABLE);
         Booking booking = storeBooking(slot.id(), BookingStatus.ACTIVE);
