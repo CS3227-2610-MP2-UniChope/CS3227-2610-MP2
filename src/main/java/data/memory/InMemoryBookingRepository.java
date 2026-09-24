@@ -14,19 +14,23 @@ import model.consultation.ConsultationNote;
 public final class InMemoryBookingRepository extends InMemoryRepository<Booking> implements BookingRepository {
     private final Map<UUID, ConsultationNote> notes = new HashMap<>();
 
-    public InMemoryBookingRepository() { super(Booking::id); }
+    public InMemoryBookingRepository() { this(new Object()); }
+
+    InMemoryBookingRepository(Object lock) { super(Booking::id, lock); }
 
     @Override
-    public synchronized Booking save(Booking booking) {
-        if (booking.status() == BookingStatus.ACTIVE && findBySlotId(booking.slotId()).stream()
-                .anyMatch(existing -> existing.status() == BookingStatus.ACTIVE
-                        && !existing.id().equals(booking.id()))) {
-            throw new IllegalArgumentException("Slot already has an active booking");
+    public Booking save(Booking booking) {
+        synchronized (lock) {
+            if (booking.status() == BookingStatus.ACTIVE && findBySlotId(booking.slotId()).stream()
+                    .anyMatch(existing -> existing.status() == BookingStatus.ACTIVE
+                            && !existing.id().equals(booking.id()))) {
+                throw new IllegalArgumentException("Slot already has an active booking");
+            }
+            if (notes.containsKey(booking.id()) && booking.status() != BookingStatus.COMPLETED) {
+                throw new IllegalArgumentException("A booking with a note must remain completed");
+            }
+            return super.save(booking);
         }
-        if (notes.containsKey(booking.id()) && booking.status() != BookingStatus.COMPLETED) {
-            throw new IllegalArgumentException("A booking with a note must remain completed");
-        }
-        return super.save(booking);
     }
 
     @Override
@@ -42,19 +46,23 @@ public final class InMemoryBookingRepository extends InMemoryRepository<Booking>
     }
 
     @Override
-    public synchronized ConsultationNote saveNote(ConsultationNote note) {
-        Objects.requireNonNull(note, "note");
-        Booking booking = findById(note.bookingId())
-                .orElseThrow(() -> new IllegalArgumentException("Booking does not exist"));
-        if (booking.status() != BookingStatus.COMPLETED) {
-            throw new IllegalArgumentException("Notes require a completed booking");
+    public ConsultationNote saveNote(ConsultationNote note) {
+        synchronized (lock) {
+            Objects.requireNonNull(note, "note");
+            Booking booking = findById(note.bookingId())
+                    .orElseThrow(() -> new IllegalArgumentException("Booking does not exist"));
+            if (booking.status() != BookingStatus.COMPLETED) {
+                throw new IllegalArgumentException("Notes require a completed booking");
+            }
+            notes.put(note.bookingId(), note);
+            return note;
         }
-        notes.put(note.bookingId(), note);
-        return note;
     }
 
     @Override
-    public synchronized Optional<ConsultationNote> findNoteByBookingId(UUID bookingId) {
-        return Optional.ofNullable(notes.get(Objects.requireNonNull(bookingId, "bookingId")));
+    public Optional<ConsultationNote> findNoteByBookingId(UUID bookingId) {
+        synchronized (lock) {
+            return Optional.ofNullable(notes.get(Objects.requireNonNull(bookingId, "bookingId")));
+        }
     }
 }
