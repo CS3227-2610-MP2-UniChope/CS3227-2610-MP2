@@ -103,3 +103,26 @@ Generated summary; pending user verification.
 
 - Explained that removal can mean permanent deletion or deactivation; deactivation preserves booking history. This explanation did not constitute user approval of a final deletion policy.
 - User requested committing and pushing the current cleanup. Scope: remove planning/memory documents from Git while retaining local copies, update README references, and consolidate this user's interaction logs into logs/kokseng.md. No application code changes or new PR were requested.
+
+
+## 25 September 2026 — Admin implementation
+
+- User asked to start the roadmap. Rechecked the current shared contracts and ran the existing unit/UI baseline successfully before implementation.
+- Asked for clarification of removal, consultation blockers, and statistics. User explicitly confirmed all three proposed rules: deactivate only; block affected ACTIVE bookings/future AVAILABLE slots; all-time completed/all and cancelled/all, 0% when empty.
+- Implemented AdminService with per-operation active-admin authorization, user creation/deactivation, module creation/edit/deactivation, and tutor assignments/unassignments. History and IDs are retained; no automatic cancellation or hard deletion is performed.
+- Replaced only the admin placeholder with five tabs: Users, Modules, Assignments, Bookings, Statistics. Added refresh, error handling, confirmation dialogs, Singapore-time display, inactive/missing-reference handling, and sign-out. Student/Tutor views, models, routing, and repository constructor signatures are unchanged.
+- Added immutable AdminSnapshot and pure AdminQueries for joins and statistics. Missing references remain visible; statistics preserve totals and distinguish same-named tutors.
+- Added OperationLog using existing JDK logging handlers, structured outcomes and counters. It omits personal input/exception messages, tolerates sink failure, and is independently usable by other roles. Persistent log-file configuration and an external monitoring system were not added.
+- Added the shared ConsultationLifecycle.withExclusiveAccess callback as a narrow integration change. The fake serializes it using the existing bundle-wide lock; the default on other implementations fails safely. Person B must implement database transaction semantics, and A/B creation workflows must validate active entities/assignments inside the boundary. No database implementation or teammates' feature code was changed.
+- Added isolated admin/util tests, including authorization, invalid/duplicate inputs, history preservation, blocked changes, statistics edge cases, simulated storage/logging failure, and deterministic guarded-concurrency tests. The latter test the shared protocol, not a complete student/tutor workflow.
+- Added an admin JavaFX workflow test; retained existing shell/lifecycle tests. Set uiTest to fork per class because JavaFX cannot restart after Platform.exit. This is the only build-setting change; no dependency upgrades or CI changes.
+- Final verification: 37 unit tests and 2 desktop UI tests passed; installDist succeeded on Windows. Inspected generated admin screens, including the default window size. Existing JavaFX classpath warning persists. Real-database restart/transaction tests and macOS/Linux execution were not performed.
+- Updated only required UserGuide/DeveloperGuide, README, and this cumulative log for tracked documentation. Updated local-only memory with the confirmed rules and status. No new roadmap document, commit, push, or PR was created.
+
+Generated summary and evidence remain pending user verification. Real persistence integration and end-to-end tests involving the other roles remain outstanding; this is not a claim that the entire production project is complete.
+
+### Follow-up verification and publication request
+
+- User asked whether Java 25 is used. Inspected Gradle task toolchains: compilation, tests, and application launch resolve to the provisioned Java 25 JDK; Java 21 only launches Gradle in the suggested local commands.
+- Confirmed to the user that in-memory changes reset on application restart and that Person B's persistent storage integration is outstanding.
+- User requested committing, pushing, and opening a PR to main for the admin implementation. The branch also includes the previously authorized removal of planning documents from Git and consolidation of the contribution log. Checked staged scope to exclude local-only memory files; existing test evidence reports 37 unit and 2 UI tests passing.
