@@ -1,0 +1,44 @@
+plugins {
+    id 'application'
+    id 'org.openjfx.javafxplugin' version '0.1.0'
+}
+
+repositories { mavenCentral() }
+
+java {
+    toolchain { languageVersion = JavaLanguageVersion.of(25) }
+}
+
+javafx {
+    version = '25.0.2'
+    modules = ['javafx.controls']
+}
+
+application {
+    mainClass = 'shell.Launcher'
+    applicationDefaultJvmArgs = ['--enable-native-access=ALL-UNNAMED']
+}
+
+dependencies {
+    testImplementation platform('org.junit:junit-bom:5.13.4')
+    testImplementation 'org.junit.jupiter:junit-jupiter'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+tasks.withType(JavaCompile).configureEach {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all']
+}
+
+// Headless-friendly unit tests run by default; UI smoke tests require a desktop.
+test { useJUnitPlatform { excludeTags 'ui' } }
+
+tasks.register('uiTest', Test) {
+    description = 'Runs the JavaFX login/routing smoke test on a desktop.'
+    group = 'verification'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform { includeTags 'ui' }
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+    shouldRunAfter test
+}
