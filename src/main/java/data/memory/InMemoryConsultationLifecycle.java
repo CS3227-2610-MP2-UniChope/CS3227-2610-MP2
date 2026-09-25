@@ -3,6 +3,7 @@ package data.memory;
 import data.repository.ConsultationLifecycle;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.function.Supplier;
 import model.consultation.Booking;
 import model.consultation.BookingStatus;
 import model.consultation.ConsultationSlot;
@@ -18,6 +19,13 @@ final class InMemoryConsultationLifecycle implements ConsultationLifecycle {
         this.slots = Objects.requireNonNull(slots, "slots");
         this.bookings = Objects.requireNonNull(bookings, "bookings");
         this.lock = Objects.requireNonNull(lock, "lock");
+    }
+
+    @Override
+    public <T> T withExclusiveAccess(Supplier<T> operation) {
+        synchronized (lock) {
+            return Objects.requireNonNull(operation, "operation").get();
+        }
     }
 
     @Override

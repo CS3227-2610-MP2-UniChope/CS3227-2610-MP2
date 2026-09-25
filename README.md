@@ -1,7 +1,6 @@
 # UniChope
 
-Java desktop consultation booking system. This branch implements the shared foundation;
-student, tutor, and admin business features are not implemented yet.
+Java desktop consultation booking system.
 
 ## Run and test
 
@@ -24,12 +23,15 @@ macOS/Linux: use `./gradlew` with the same tasks. `uiTest` requires a graphical 
 
 The login screen is explicitly a **demo account selector**, with one active sample
 account per role. It is not secure authentication. Data is in memory and resets on
-restart. Each role currently opens a placeholder workspace with a sign-out button.
+restart. Admin opens user/module/assignment management, booking, and statistics tabs.
+Student and Tutor open placeholder workspaces. All roles can sign out.
 
 `installDist` creates `build/install/UniChope/` containing launchers and the current
 platform's runtime dependencies. This is a development distribution, not the final
 cross-platform release JAR required by the assignment.
 
-See [Foundation design](docs/Foundation.md) for repository contracts, integration
-boundaries, assumptions, and remaining decisions. The assignment requirements and
-current team plan are preserved in PROJECT_REQUIREMENTS.md and PROJECT_PLAN.md.
+The in-memory repositories are temporary development storage. Person B will replace
+the application's storage with a tested persistence implementation before release;
+the repository interfaces remain, and the fakes can continue to support tests.
+
+See [User Guide](docs/UserGuide.md) for admin actions and [Developer Guide](docs/DeveloperGuide.md) for design, testing, logging, and the persistence handoff.

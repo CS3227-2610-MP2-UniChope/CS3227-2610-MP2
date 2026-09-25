@@ -39,6 +39,8 @@ tasks.register('uiTest', Test) {
     testClassesDirs = sourceSets.test.output.classesDirs
     classpath = sourceSets.test.runtimeClasspath
     useJUnitPlatform { includeTags 'ui' }
+    // JavaFX cannot restart after Platform.exit(); isolate each UI test class.
+    forkEvery = 1
     jvmArgs '--enable-native-access=ALL-UNNAMED'
     shouldRunAfter test
 }
