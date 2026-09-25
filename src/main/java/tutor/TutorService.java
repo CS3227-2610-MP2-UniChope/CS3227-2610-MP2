@@ -32,6 +32,19 @@ public final class TutorService {
         return execute("tutor.slot.create", slotId, () -> createSlot(slotId, moduleId, startTime, endTime));
     }
 
+    public ConsultationSlot cancelSlot(UUID slotId) {
+        UUID validatedSlotId = Objects.requireNonNull(slotId, "slotId");
+        return execute("tutor.slot.cancel", validatedSlotId, () -> {
+            Tutor tutor = requireActiveTutor();
+            ConsultationSlot slot = data.slots().findById(validatedSlotId)
+                    .orElseThrow(() -> new IllegalArgumentException("Slot does not exist"));
+            if (!slot.tutorId().equals(tutor.id()) || slot.status() != SlotStatus.AVAILABLE) {
+                throw new IllegalArgumentException("Only an owned available slot can be cancelled");
+            }
+            return data.slots().save(slot.withStatus(SlotStatus.CANCELLED));
+        });
+    }
+
     private ConsultationSlot createSlot(UUID slotId, UUID moduleId, Instant startTime, Instant endTime) {
         Tutor tutor = requireActiveTutor();
         Module module = data.modules().findById(Objects.requireNonNull(moduleId, "moduleId"))

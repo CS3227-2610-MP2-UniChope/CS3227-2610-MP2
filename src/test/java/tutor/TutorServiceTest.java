@@ -6,6 +6,7 @@ import java.util.concurrent.Executors;
 import model.consultation.ConsultationSlot;
 import model.consultation.SlotStatus;
 import model.module.TutorModule;
+import model.user.Tutor;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -142,5 +143,66 @@ class TutorServiceTest {
             assertEquals(1, accepted);
         }
         assertEquals(1, f.data.slots().findByTutorId(f.tutor.id()).size());
+    }
+
+    @Test
+    void cancelSlot_ownedAvailableSlot_marksSlotCancelled() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+
+        ConsultationSlot cancelled = f.service.cancelSlot(slot.id());
+
+        assertEquals(SlotStatus.CANCELLED, cancelled.status());
+        assertEquals(SlotStatus.CANCELLED, f.data.slots().findById(slot.id()).orElseThrow().status());
+    }
+
+    @Test
+    void cancelSlot_otherTutorsSlot_rejectsRequest() {
+        var f = new TutorFixture();
+        Tutor otherTutor = new Tutor(UUID.randomUUID(), "Grace", "grace@example.edu", true);
+        f.data.users().save(otherTutor);
+        f.data.modules().assign(new TutorModule(otherTutor.id(), f.module.id()));
+        ConsultationSlot slot = f.service(otherTutor.id()).createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.cancelSlot(slot.id()));
+    }
+
+    @Test
+    void cancelSlot_bookedSlot_rejectsRequest() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.cancelSlot(slot.id()));
+    }
+
+    @Test
+    void cancelSlot_completedSlot_rejectsRequest() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.COMPLETED));
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.cancelSlot(slot.id()));
+    }
+
+    @Test
+    void cancelSlot_missingSlot_rejectsRequest() {
+        var f = new TutorFixture();
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.cancelSlot(UUID.randomUUID()));
+    }
+
+    @Test
+    void cancelSlot_cancelledSlot_rejectsRequest() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.CANCELLED));
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.cancelSlot(slot.id()));
     }
 }
