@@ -16,6 +16,7 @@ import javafx.scene.control.*;
 import javafx.scene.layout.*;
 import javafx.util.StringConverter;
 import model.consultation.ConsultationSlot;
+import model.consultation.BookingStatus;
 import model.module.Module;
 
 /** JavaFX presentation for tutor slot management; TutorService owns business rules. */
@@ -31,6 +32,10 @@ final class TutorWorkspace {
     private final TextField start = field("Start (HH:mm)", "slot-start");
     private final TextField end = field("End (HH:mm)", "slot-end");
     private final TableView<ConsultationSlot> slots = table("slot-table");
+    private final ComboBox<Module> bookingModules = new ComboBox<>();
+    private final DatePicker bookingDate = new DatePicker();
+    private final ComboBox<BookingStatus> bookingStatus = new ComboBox<>();
+    private final TableView<TutorBookingView> bookings = table("booking-table");
 
     TutorWorkspace(TutorService service, Runnable signOut) {
         this.service = service;
@@ -42,7 +47,7 @@ final class TutorWorkspace {
         Region space = new Region();
         HBox.setHgrow(space, Priority.ALWAYS);
         root.setTop(new HBox(12, heading, space, refresh, logout));
-        TabPane tabs = new TabPane(slotsTab());
+        TabPane tabs = new TabPane(slotsTab(), bookingsTab());
         tabs.setId("tutor-tabs");
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         root.setCenter(tabs);
@@ -77,6 +82,26 @@ final class TutorWorkspace {
         return tab("Slots", slots, new FlowPane(8, 8, date, modules, start, end, create, cancel));
     }
 
+    private Tab bookingsTab() {
+        column(bookings, "Student", TutorBookingView::studentName);
+        column(bookings, "Module", TutorBookingView::moduleCode);
+        column(bookings, "Start (SGT)", booking -> booking.startTime().atZone(SINGAPORE).toLocalDateTime().toString());
+        column(bookings, "End (SGT)", booking -> booking.endTime().atZone(SINGAPORE).toLocalDateTime().toString());
+        column(bookings, "Status", booking -> booking.status().toString());
+        bookingModules.setId("booking-module");
+        bookingModules.setPromptText("Module");
+        bookingModules.setConverter(converter(Module::code));
+        bookingDate.setId("booking-date");
+        bookingDate.setPromptText("Date");
+        bookingStatus.setId("booking-status");
+        bookingStatus.setPromptText("Status");
+        bookingStatus.getItems().setAll(BookingStatus.values());
+        Button filter = button("Filter", "filter-bookings", () -> refresh("Filtered"));
+        Button complete = button("Complete selected", "complete-booking", () -> act(() ->
+                service.completeBooking(selected(bookings).bookingId())));
+        return tab("Bookings", bookings, new FlowPane(8, 8, bookingModules, bookingDate, bookingStatus, filter, complete));
+    }
+
     private Instant instant(String value) {
         if (date.getValue() == null) { throw new IllegalArgumentException("Select a slot date"); }
         try {
@@ -90,11 +115,17 @@ final class TutorWorkspace {
         try {
             modules.getItems().setAll(service.findActiveAssignedModules());
             modules.getItems().sort(Comparator.comparing(Module::code));
+            bookingModules.getItems().setAll(modules.getItems());
             slots.getItems().setAll(service.findUpcomingSlots(date.getValue()));
+            bookings.getItems().setAll(service.findBookingViews(new BookingFilter(
+                    bookingModules.getValue() == null ? null : bookingModules.getValue().id(),
+                    bookingDate.getValue(), bookingStatus.getValue())));
             message.setText(success);
         } catch (RuntimeException failure) {
             modules.getItems().clear();
             slots.getItems().clear();
+            bookingModules.getItems().clear();
+            bookings.getItems().clear();
             message.setText(failure instanceof IllegalArgumentException || failure instanceof SecurityException
                     ? failure.getMessage() : "Storage operation failed. Refresh and try again.");
         }
