@@ -8,11 +8,13 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
 import model.consultation.ConsultationSlot;
 import model.consultation.Booking;
 import model.consultation.BookingStatus;
+import model.consultation.ConsultationNote;
 import model.consultation.SlotStatus;
 import model.module.Module;
 import model.module.TutorModule;
@@ -68,7 +70,10 @@ public final class TutorService {
     public List<Booking> findBookings(BookingFilter filter) {
         BookingFilter selectedFilter = Objects.requireNonNull(filter, "filter");
         return execute("tutor.booking.find", null, () -> {
-            Tutor tutor = requireActiveTutor();
+            Tutor tutor = requireTutor();
+            if (!tutor.isActive() && selectedFilter.status() != BookingStatus.COMPLETED) {
+                throw new SecurityException("An inactive tutor may only view completed booking history");
+            }
             return data.bookings().findAll().stream()
                     .filter(booking -> data.slots().findById(booking.slotId())
                             .filter(slot -> slot.tutorId().equals(tutor.id())).isPresent())
@@ -89,6 +94,36 @@ public final class TutorService {
         return execute("tutor.booking.complete", validatedBookingId, () -> {
             requireActiveTutor();
             return data.lifecycle().completeActiveBooking(actorId, validatedBookingId);
+        });
+    }
+
+    public ConsultationNote saveNote(UUID bookingId, String content) {
+        UUID validatedBookingId = Objects.requireNonNull(bookingId, "bookingId");
+        return execute("tutor.note.save", validatedBookingId, () -> {
+            Tutor tutor = requireActiveTutor();
+            Booking booking = data.bookings().findById(validatedBookingId)
+                    .orElseThrow(() -> new IllegalArgumentException("Booking does not exist"));
+            ConsultationSlot slot = data.slots().findById(booking.slotId())
+                    .orElseThrow(() -> new IllegalArgumentException("Slot does not exist"));
+            if (!slot.tutorId().equals(tutor.id())) {
+                throw new IllegalArgumentException("Booking does not belong to tutor");
+            }
+            return data.bookings().saveNote(new ConsultationNote(validatedBookingId, content, clock.instant()));
+        });
+    }
+
+    public Optional<ConsultationNote> findNote(UUID bookingId) {
+        UUID validatedBookingId = Objects.requireNonNull(bookingId, "bookingId");
+        return execute("tutor.note.find", validatedBookingId, () -> {
+            Tutor tutor = requireTutor();
+            Booking booking = data.bookings().findById(validatedBookingId)
+                    .orElseThrow(() -> new IllegalArgumentException("Booking does not exist"));
+            ConsultationSlot slot = data.slots().findById(booking.slotId())
+                    .orElseThrow(() -> new IllegalArgumentException("Slot does not exist"));
+            if (!slot.tutorId().equals(tutor.id())) {
+                throw new IllegalArgumentException("Booking does not belong to tutor");
+            }
+            return data.bookings().findNoteByBookingId(validatedBookingId);
         });
     }
 
@@ -119,11 +154,18 @@ public final class TutorService {
     }
 
     private Tutor requireActiveTutor() {
+        Tutor tutor = requireTutor();
+        if (!tutor.isActive()) {
+            throw new SecurityException("An active tutor account is required. Sign out.");
+        }
+        return tutor;
+    }
+
+    private Tutor requireTutor() {
         return data.users().findById(actorId)
                 .filter(Tutor.class::isInstance)
                 .map(Tutor.class::cast)
-                .filter(Tutor::isActive)
-                .orElseThrow(() -> new SecurityException("An active tutor account is required. Sign out."));
+                .orElseThrow(() -> new SecurityException("A tutor account is required. Sign out."));
     }
 
     private <T> T execute(String operation, UUID entityId, Supplier<T> action) {
