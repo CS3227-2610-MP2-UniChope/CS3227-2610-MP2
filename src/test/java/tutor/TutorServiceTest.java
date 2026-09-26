@@ -1,5 +1,7 @@
 package tutor;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
@@ -204,5 +206,45 @@ class TutorServiceTest {
         f.data.slots().save(slot.withStatus(SlotStatus.CANCELLED));
 
         assertThrows(IllegalArgumentException.class, () -> f.service.cancelSlot(slot.id()));
+    }
+
+    @Test
+    void findUpcomingSlots_matchingSingaporeDate_returnsSortedAvailableAndBookedSlots() {
+        var f = new TutorFixture();
+        ConsultationSlot later = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(7200), f.now.plusSeconds(9000));
+        ConsultationSlot earlier = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(later.withStatus(SlotStatus.BOOKED));
+        ConsultationSlot cancelled = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(10800), f.now.plusSeconds(12600));
+        f.data.slots().save(cancelled.withStatus(SlotStatus.CANCELLED));
+
+        var result = f.service.findUpcomingSlots(LocalDate.of(2026, 9, 24));
+
+        assertEquals(java.util.List.of(earlier, later.withStatus(SlotStatus.BOOKED)), result);
+    }
+
+    @Test
+    void findUpcomingSlots_slotAfterUtcMidnightBoundary_matchesSingaporeDate() {
+        var f = new TutorFixture();
+        Instant start = Instant.parse("2026-09-24T16:30:00Z");
+        ConsultationSlot slot = f.service.createSlot(f.module.id(), start, start.plusSeconds(1800));
+
+        var result = f.service.findUpcomingSlots(LocalDate.of(2026, 9, 25));
+
+        assertEquals(java.util.List.of(slot), result);
+    }
+
+    @Test
+    void findUpcomingSlots_pastAvailableSlot_excludesSlot() {
+        var f = new TutorFixture();
+        ConsultationSlot past = new ConsultationSlot(UUID.randomUUID(), f.tutor.id(), f.module.id(),
+                f.now.minusSeconds(3600), f.now.minusSeconds(1800), SlotStatus.AVAILABLE);
+        f.data.slots().save(past);
+
+        var result = f.service.findUpcomingSlots(LocalDate.of(2026, 9, 24));
+
+        assertEquals(java.util.List.of(), result);
     }
 }

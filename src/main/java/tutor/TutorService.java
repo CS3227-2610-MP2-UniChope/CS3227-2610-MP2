@@ -3,6 +3,10 @@ package tutor;
 import data.repository.Repositories;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -15,6 +19,7 @@ import util.OperationLog;
 
 /** Tutor-role business rules independent of the JavaFX user interface. */
 public final class TutorService {
+    private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
     private final Repositories data;
     private final UUID actorId;
     private final Clock clock;
@@ -42,6 +47,19 @@ public final class TutorService {
                 throw new IllegalArgumentException("Only an owned available slot can be cancelled");
             }
             return data.slots().save(slot.withStatus(SlotStatus.CANCELLED));
+        });
+    }
+
+    public List<ConsultationSlot> findUpcomingSlots(LocalDate date) {
+        LocalDate selectedDate = Objects.requireNonNull(date, "date");
+        return execute("tutor.slot.upcoming", null, () -> {
+            Tutor tutor = requireActiveTutor();
+            return data.slots().findByTutorId(tutor.id()).stream()
+                    .filter(slot -> !slot.startTime().isBefore(clock.instant()))
+                    .filter(slot -> slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.BOOKED)
+                    .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(selectedDate))
+                    .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
+                    .toList();
         });
     }
 
