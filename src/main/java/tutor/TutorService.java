@@ -18,6 +18,7 @@ import model.consultation.ConsultationNote;
 import model.consultation.SlotStatus;
 import model.module.Module;
 import model.module.TutorModule;
+import model.user.Student;
 import model.user.Tutor;
 import util.OperationLog;
 
@@ -67,24 +68,52 @@ public final class TutorService {
         });
     }
 
+    public List<ConsultationSlot> findSlotHistory(LocalDate date, SlotStatus status) {
+        LocalDate selectedDate = Objects.requireNonNull(date, "date");
+        SlotStatus selectedStatus = Objects.requireNonNull(status, "status");
+        return execute("tutor.slot.history", null, () -> {
+            Tutor tutor = requireTutor();
+            if (selectedStatus != SlotStatus.CANCELLED && selectedStatus != SlotStatus.COMPLETED) {
+                throw new IllegalArgumentException("Slot history must be cancelled or completed");
+            }
+            if (!tutor.isActive() && selectedStatus != SlotStatus.COMPLETED) {
+                throw new SecurityException("An inactive tutor may only view completed slot history");
+            }
+            return data.slots().findByTutorId(tutor.id()).stream()
+                    .filter(slot -> slot.status() == selectedStatus)
+                    .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(selectedDate))
+                    .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
+                    .toList();
+        });
+    }
+
+    public List<Module> findActiveAssignedModules() {
+        return execute("tutor.module.active", null, () -> {
+            Tutor tutor = requireActiveTutor();
+            return data.modules().findAssignmentsByTutor(tutor.id()).stream()
+                    .map(TutorModule::moduleId)
+                    .map(data.modules()::findById)
+                    .flatMap(Optional::stream)
+                    .filter(Module::isActive)
+                    .sorted(Comparator.comparing(Module::code).thenComparing(Module::id))
+                    .toList();
+        });
+    }
+
     public List<Booking> findBookings(BookingFilter filter) {
         BookingFilter selectedFilter = Objects.requireNonNull(filter, "filter");
         return execute("tutor.booking.find", null, () -> {
             Tutor tutor = requireTutor();
-            if (!tutor.isActive() && selectedFilter.status() != BookingStatus.COMPLETED) {
-                throw new SecurityException("An inactive tutor may only view completed booking history");
-            }
-            return data.bookings().findAll().stream()
-                    .filter(booking -> data.slots().findById(booking.slotId())
-                            .filter(slot -> slot.tutorId().equals(tutor.id())).isPresent())
-                    .filter(booking -> selectedFilter.moduleId() == null || data.slots().findById(booking.slotId())
-                            .filter(slot -> slot.moduleId().equals(selectedFilter.moduleId())).isPresent())
-                    .filter(booking -> selectedFilter.date() == null || data.slots().findById(booking.slotId())
-                            .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate()
-                                    .equals(selectedFilter.date())).isPresent())
-                    .filter(booking -> selectedFilter.status() == null || booking.status() == selectedFilter.status())
-                    .sorted(Comparator.comparing((Booking booking) -> data.slots().findById(booking.slotId())
-                            .orElseThrow().startTime()).thenComparing(Booking::id))
+            return findBookings(tutor, selectedFilter);
+        });
+    }
+
+    public List<TutorBookingView> findBookingViews(BookingFilter filter) {
+        BookingFilter selectedFilter = Objects.requireNonNull(filter, "filter");
+        return execute("tutor.booking.view", null, () -> {
+            Tutor tutor = requireTutor();
+            return findBookings(tutor, selectedFilter).stream()
+                    .map(this::toBookingView)
                     .toList();
         });
     }
@@ -159,6 +188,37 @@ public final class TutorService {
             throw new SecurityException("An active tutor account is required. Sign out.");
         }
         return tutor;
+    }
+
+    private List<Booking> findBookings(Tutor tutor, BookingFilter filter) {
+        if (!tutor.isActive() && filter.status() != BookingStatus.COMPLETED) {
+            throw new SecurityException("An inactive tutor may only view completed booking history");
+        }
+        return data.bookings().findAll().stream()
+                .filter(booking -> data.slots().findById(booking.slotId())
+                        .filter(slot -> slot.tutorId().equals(tutor.id())).isPresent())
+                .filter(booking -> filter.moduleId() == null || data.slots().findById(booking.slotId())
+                        .filter(slot -> slot.moduleId().equals(filter.moduleId())).isPresent())
+                .filter(booking -> filter.date() == null || data.slots().findById(booking.slotId())
+                        .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(filter.date()))
+                        .isPresent())
+                .filter(booking -> filter.status() == null || booking.status() == filter.status())
+                .sorted(Comparator.comparing((Booking booking) -> data.slots().findById(booking.slotId())
+                        .orElseThrow().startTime()).thenComparing(Booking::id))
+                .toList();
+    }
+
+    private TutorBookingView toBookingView(Booking booking) {
+        ConsultationSlot slot = data.slots().findById(booking.slotId())
+                .orElseThrow(() -> new IllegalArgumentException("Slot does not exist"));
+        Student student = data.users().findById(booking.studentId())
+                .filter(Student.class::isInstance)
+                .map(Student.class::cast)
+                .orElseThrow(() -> new IllegalArgumentException("Student does not exist"));
+        Module module = data.modules().findById(slot.moduleId())
+                .orElseThrow(() -> new IllegalArgumentException("Module does not exist"));
+        return new TutorBookingView(booking.id(), slot.id(), student.name(), module.code(),
+                slot.startTime(), slot.endTime(), booking.status());
     }
 
     private Tutor requireTutor() {

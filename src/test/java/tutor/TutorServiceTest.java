@@ -13,6 +13,7 @@ import model.consultation.ConsultationNote;
 import model.consultation.SlotStatus;
 import model.module.TutorModule;
 import model.module.Module;
+import model.user.Student;
 import model.user.Tutor;
 import org.junit.jupiter.api.Test;
 
@@ -516,5 +517,91 @@ class TutorServiceTest {
 
         assertEquals(List.of(booking.withStatus(BookingStatus.COMPLETED)),
                 f.service.findBookings(new BookingFilter(null, null, BookingStatus.COMPLETED)));
+    }
+
+    @Test
+    void findSlotHistory_cancelledStatus_returnsOwnedSlotsSortedByStartTime() {
+        var f = new TutorFixture();
+        ConsultationSlot later = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(7200), f.now.plusSeconds(9000));
+        ConsultationSlot earlier = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.service.cancelSlot(later.id());
+        f.service.cancelSlot(earlier.id());
+
+        assertEquals(List.of(earlier.withStatus(SlotStatus.CANCELLED), later.withStatus(SlotStatus.CANCELLED)),
+                f.service.findSlotHistory(LocalDate.of(2026, 9, 24), SlotStatus.CANCELLED));
+    }
+
+    @Test
+    void findSlotHistory_completedStatus_returnsOwnedSlots() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.COMPLETED));
+
+        assertEquals(List.of(slot.withStatus(SlotStatus.COMPLETED)),
+                f.service.findSlotHistory(LocalDate.of(2026, 9, 24), SlotStatus.COMPLETED));
+    }
+
+    @Test
+    void findSlotHistory_availableStatus_rejectsRequest() {
+        var f = new TutorFixture();
+
+        assertThrows(IllegalArgumentException.class,
+                () -> f.service.findSlotHistory(LocalDate.of(2026, 9, 24), SlotStatus.AVAILABLE));
+    }
+
+    @Test
+    void findSlotHistory_inactiveTutorWithCompletedSlots_returnsHistory() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.COMPLETED));
+        f.data.users().save(f.tutor.withActive(false));
+
+        assertEquals(List.of(slot.withStatus(SlotStatus.COMPLETED)),
+                f.service.findSlotHistory(LocalDate.of(2026, 9, 24), SlotStatus.COMPLETED));
+    }
+
+    @Test
+    void findActiveAssignedModules_activeTutor_returnsAssignedActiveModules() {
+        var f = new TutorFixture();
+
+        assertEquals(List.of(f.module), f.service.findActiveAssignedModules());
+    }
+
+    @Test
+    void findActiveAssignedModules_assignedInactiveModule_excludesModule() {
+        var f = new TutorFixture();
+        Module inactiveModule = new Module(UUID.randomUUID(), "CS2100", "Computer Organisation", false);
+        f.data.modules().save(inactiveModule);
+        f.data.modules().assign(new TutorModule(f.tutor.id(), inactiveModule.id()));
+
+        assertEquals(List.of(f.module), f.service.findActiveAssignedModules());
+    }
+
+    @Test
+    void findActiveAssignedModules_inactiveTutor_rejectsRequest() {
+        var f = new TutorFixture();
+        f.data.users().save(f.tutor.withActive(false));
+
+        assertThrows(SecurityException.class, f.service::findActiveAssignedModules);
+    }
+
+    @Test
+    void findBookingViews_ownedActiveBooking_returnsTableReadyRow() {
+        var f = new TutorFixture();
+        Student student = new Student(UUID.randomUUID(), "Lin", "lin@example.edu", true);
+        f.data.users().save(student);
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
+        Booking booking = new Booking(UUID.randomUUID(), student.id(), slot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(booking);
+
+        assertEquals(List.of(new TutorBookingView(booking.id(), slot.id(), student.name(), f.module.code(),
+                        slot.startTime(), slot.endTime(), BookingStatus.ACTIVE)),
+                f.service.findBookingViews(new BookingFilter(null, null, BookingStatus.ACTIVE)));
     }
 }
