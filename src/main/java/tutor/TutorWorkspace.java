@@ -29,7 +29,7 @@ final class TutorWorkspace {
     private final TutorService service;
     private final BorderPane root = new BorderPane();
     private final Label message = new Label();
-    private final DatePicker date = new DatePicker(LocalDate.now(SINGAPORE));
+    private final DatePicker date = new DatePicker();
     private final ComboBox<Module> modules = new ComboBox<>();
     private final TextField start = field("Start (HH:mm)", "slot-start");
     private final TextField end = field("End (HH:mm)", "slot-end");
@@ -66,8 +66,14 @@ final class TutorWorkspace {
         column(slots, "End (SGT)", slot -> displayTime(slot.endTime()));
         column(slots, "Status", slot -> slot.status().toString());
         date.setId("slot-date");
-        date.valueProperty().addListener((observable, oldDate, newDate) -> {
-            if (newDate != null) { refresh(""); }
+        date.setPromptText("Filter date");
+        date.valueProperty().addListener((observable, oldDate, newDate) -> refresh(""));
+        Button showAllUpcoming = button("Show all upcoming", "show-all-upcoming", () -> {
+            if (date.getValue() == null) {
+                refresh("");
+            } else {
+                date.setValue(null);
+            }
         });
         modules.setId("slot-module");
         modules.setPromptText("Active assigned module");
@@ -85,7 +91,7 @@ final class TutorWorkspace {
         AppUi.danger(cancel);
         return new Tab("Slots", AppUi.section("Make time for your students", "Choose a date and course to offer a consultation. Times shown in SGT.",
                 AppUi.filters(AppUi.field("Date · SGT", date), AppUi.field("Assigned course", modules),
-                        AppUi.field("Starts · HH:mm", start), AppUi.field("Ends · HH:mm", end)), slots, create, cancel));
+                        AppUi.field("Starts · HH:mm", start), AppUi.field("Ends · HH:mm", end), showAllUpcoming), slots, create, cancel));
     }
 
     private Tab bookingsTab() {
@@ -176,7 +182,9 @@ final class TutorWorkspace {
             modules.getItems().setAll(service.findActiveAssignedModules());
             modules.getItems().sort(Comparator.comparing(Module::code));
             bookingModules.getItems().setAll(modules.getItems());
-            slots.getItems().setAll(service.findUpcomingSlotViews(date.getValue()));
+            slots.getItems().setAll(date.getValue() == null
+                    ? service.findUpcomingSlotViews()
+                    : service.findUpcomingSlotViews(date.getValue()));
             bookings.getItems().setAll(service.findBookingViews(new BookingFilter(
                     bookingModules.getValue() == null ? null : bookingModules.getValue().id(),
                     bookingDate.getValue(), bookingStatus.getValue())));

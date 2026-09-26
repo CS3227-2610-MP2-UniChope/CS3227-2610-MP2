@@ -73,6 +73,15 @@ public final class TutorService {
         });
     }
 
+    public List<TutorSlotView> findUpcomingSlotViews() {
+        return execute("tutor.slot.view", null, () -> {
+            Tutor tutor = requireActiveTutor();
+            return findUpcomingSlots(tutor, null).stream()
+                    .map(this::toSlotView)
+                    .toList();
+        });
+    }
+
     public List<ConsultationSlot> findSlotHistory(LocalDate date, SlotStatus status) {
         LocalDate selectedDate = Objects.requireNonNull(date, "date");
         SlotStatus selectedStatus = Objects.requireNonNull(status, "status");
@@ -217,7 +226,7 @@ public final class TutorService {
         return data.slots().findByTutorId(tutor.id()).stream()
                 .filter(slot -> !slot.startTime().isBefore(clock.instant()))
                 .filter(slot -> slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.BOOKED)
-                .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(date))
+                .filter(slot -> date == null || slot.startTime().atZone(SINGAPORE).toLocalDate().equals(date))
                 .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
                 .toList();
     }
