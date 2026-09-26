@@ -13,6 +13,6 @@ public final class InMemoryRepositories {
         InMemorySlotRepository slots = new InMemorySlotRepository(lock);
         InMemoryBookingRepository bookings = new InMemoryBookingRepository(lock);
         return new Repositories(users, modules, slots, bookings,
-                new InMemoryConsultationLifecycle(slots, bookings, lock));
+                new InMemoryConsultationLifecycle(users, modules, slots, bookings, lock));
     }
 }
