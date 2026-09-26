@@ -6,8 +6,11 @@ import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.Executors;
 import model.consultation.ConsultationSlot;
+import model.consultation.Booking;
+import model.consultation.BookingStatus;
 import model.consultation.SlotStatus;
 import model.module.TutorModule;
+import model.module.Module;
 import model.user.Tutor;
 import org.junit.jupiter.api.Test;
 
@@ -246,5 +249,110 @@ class TutorServiceTest {
         var result = f.service.findUpcomingSlots(LocalDate.of(2026, 9, 24));
 
         assertEquals(java.util.List.of(), result);
+    }
+
+    @Test
+    void findBookings_matchingStatus_returnsOnlyTutorsBookings() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
+        Booking active = new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(active);
+        Booking cancelled = new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(),
+                f.now.plusSeconds(1), BookingStatus.CANCELLED);
+        f.data.bookings().save(cancelled);
+
+        var result = f.service.findBookings(new BookingFilter(null, null, BookingStatus.ACTIVE));
+
+        assertEquals(java.util.List.of(active), result);
+    }
+
+    @Test
+    void findBookings_matchingModule_returnsOnlyMatchingBookings() {
+        var f = new TutorFixture();
+        ConsultationSlot firstSlot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(firstSlot.withStatus(SlotStatus.BOOKED));
+        Booking first = new Booking(UUID.randomUUID(), UUID.randomUUID(), firstSlot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(first);
+        Module otherModule = new Module(UUID.randomUUID(), "CS2103", "Software Engineering", true);
+        f.data.modules().save(otherModule);
+        f.data.modules().assign(new TutorModule(f.tutor.id(), otherModule.id()));
+        ConsultationSlot secondSlot = f.service.createSlot(otherModule.id(),
+                f.now.plusSeconds(7200), f.now.plusSeconds(9000));
+        f.data.slots().save(secondSlot.withStatus(SlotStatus.BOOKED));
+        f.data.bookings().save(new Booking(UUID.randomUUID(), UUID.randomUUID(), secondSlot.id(),
+                f.now, BookingStatus.ACTIVE));
+
+        var result = f.service.findBookings(new BookingFilter(f.module.id(), null, null));
+
+        assertEquals(java.util.List.of(first), result);
+    }
+
+    @Test
+    void findBookings_matchingSingaporeDate_returnsOnlyBookingsForThatDate() {
+        var f = new TutorFixture();
+        ConsultationSlot firstSlot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(firstSlot.withStatus(SlotStatus.BOOKED));
+        f.data.bookings().save(new Booking(UUID.randomUUID(), UUID.randomUUID(), firstSlot.id(),
+                f.now, BookingStatus.ACTIVE));
+        Instant nextSingaporeDate = Instant.parse("2026-09-24T16:30:00Z");
+        ConsultationSlot secondSlot = f.service.createSlot(f.module.id(),
+                nextSingaporeDate, nextSingaporeDate.plusSeconds(1800));
+        f.data.slots().save(secondSlot.withStatus(SlotStatus.BOOKED));
+        Booking second = new Booking(UUID.randomUUID(), UUID.randomUUID(), secondSlot.id(),
+                f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(second);
+
+        var result = f.service.findBookings(new BookingFilter(null, LocalDate.of(2026, 9, 25), null));
+
+        assertEquals(java.util.List.of(second), result);
+    }
+
+    @Test
+    void findBookings_unsortedStorage_returnsBookingsBySlotStartTime() {
+        var f = new TutorFixture();
+        ConsultationSlot laterSlot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(7200), f.now.plusSeconds(9000));
+        f.data.slots().save(laterSlot.withStatus(SlotStatus.BOOKED));
+        Booking later = new Booking(UUID.randomUUID(), UUID.randomUUID(), laterSlot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(later);
+        ConsultationSlot earlierSlot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(earlierSlot.withStatus(SlotStatus.BOOKED));
+        Booking earlier = new Booking(UUID.randomUUID(), UUID.randomUUID(), earlierSlot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(earlier);
+
+        var result = f.service.findBookings(new BookingFilter(null, null, null));
+
+        assertEquals(java.util.List.of(earlier, later), result);
+    }
+
+    @Test
+    void findBookings_otherTutorsBooking_excludesBooking() {
+        var f = new TutorFixture();
+        Tutor otherTutor = new Tutor(UUID.randomUUID(), "Grace", "grace@example.edu", true);
+        f.data.users().save(otherTutor);
+        f.data.modules().assign(new TutorModule(otherTutor.id(), f.module.id()));
+        ConsultationSlot slot = f.service(otherTutor.id()).createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
+        f.data.bookings().save(new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(),
+                f.now, BookingStatus.ACTIVE));
+
+        var result = f.service.findBookings(new BookingFilter(null, null, BookingStatus.ACTIVE));
+
+        assertEquals(java.util.List.of(), result);
+    }
+
+    @Test
+    void findBookings_inactiveTutor_rejectsRequest() {
+        var f = new TutorFixture();
+        f.data.users().save(f.tutor.withActive(false));
+
+        assertThrows(SecurityException.class,
+                () -> f.service.findBookings(new BookingFilter(null, null, null)));
     }
 }

@@ -11,6 +11,8 @@ import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Supplier;
 import model.consultation.ConsultationSlot;
+import model.consultation.Booking;
+import model.consultation.BookingStatus;
 import model.consultation.SlotStatus;
 import model.module.Module;
 import model.module.TutorModule;
@@ -59,6 +61,25 @@ public final class TutorService {
                     .filter(slot -> slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.BOOKED)
                     .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(selectedDate))
                     .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
+                    .toList();
+        });
+    }
+
+    public List<Booking> findBookings(BookingFilter filter) {
+        BookingFilter selectedFilter = Objects.requireNonNull(filter, "filter");
+        return execute("tutor.booking.find", null, () -> {
+            Tutor tutor = requireActiveTutor();
+            return data.bookings().findAll().stream()
+                    .filter(booking -> data.slots().findById(booking.slotId())
+                            .filter(slot -> slot.tutorId().equals(tutor.id())).isPresent())
+                    .filter(booking -> selectedFilter.moduleId() == null || data.slots().findById(booking.slotId())
+                            .filter(slot -> slot.moduleId().equals(selectedFilter.moduleId())).isPresent())
+                    .filter(booking -> selectedFilter.date() == null || data.slots().findById(booking.slotId())
+                            .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate()
+                                    .equals(selectedFilter.date())).isPresent())
+                    .filter(booking -> selectedFilter.status() == null || booking.status() == selectedFilter.status())
+                    .sorted(Comparator.comparing((Booking booking) -> data.slots().findById(booking.slotId())
+                            .orElseThrow().startTime()).thenComparing(Booking::id))
                     .toList();
         });
     }
