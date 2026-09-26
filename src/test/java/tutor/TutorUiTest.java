@@ -11,6 +11,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.DatePicker;
 import javafx.scene.control.TabPane;
+import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.stage.Stage;
@@ -48,6 +49,14 @@ class TutorUiTest {
                 TableView<TutorSlotView> slots = (TableView<TutorSlotView>) root.lookup("#slot-table");
                 assertEquals(1, slots.getItems().size());
                 assertEquals("CS3227", slots.getItems().getFirst().moduleCode());
+                @SuppressWarnings("unchecked")
+                TableColumn<TutorSlotView, String> startColumn =
+                        (TableColumn<TutorSlotView, String>) slots.getColumns().get(1);
+                assertEquals("24/09/2026 10:00", startColumn.getCellObservableValue(0).getValue());
+                ((DatePicker) root.lookup("#slot-date")).setValue(LocalDate.of(2026, 9, 25));
+                assertEquals(0, slots.getItems().size());
+                ((DatePicker) root.lookup("#slot-date")).setValue(LocalDate.of(2026, 9, 24));
+                assertEquals(1, slots.getItems().size());
                 slots.getSelectionModel().selectFirst();
                 ((Button) root.lookup("#cancel-slot")).fire();
                 assertEquals(0, slots.getItems().size());
