@@ -59,11 +59,16 @@ public final class TutorService {
         LocalDate selectedDate = Objects.requireNonNull(date, "date");
         return execute("tutor.slot.upcoming", null, () -> {
             Tutor tutor = requireActiveTutor();
-            return data.slots().findByTutorId(tutor.id()).stream()
-                    .filter(slot -> !slot.startTime().isBefore(clock.instant()))
-                    .filter(slot -> slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.BOOKED)
-                    .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(selectedDate))
-                    .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
+            return findUpcomingSlots(tutor, selectedDate);
+        });
+    }
+
+    public List<TutorSlotView> findUpcomingSlotViews(LocalDate date) {
+        LocalDate selectedDate = Objects.requireNonNull(date, "date");
+        return execute("tutor.slot.view", null, () -> {
+            Tutor tutor = requireActiveTutor();
+            return findUpcomingSlots(tutor, selectedDate).stream()
+                    .map(this::toSlotView)
                     .toList();
         });
     }
@@ -206,6 +211,21 @@ public final class TutorService {
                 .sorted(Comparator.comparing((Booking booking) -> data.slots().findById(booking.slotId())
                         .orElseThrow().startTime()).thenComparing(Booking::id))
                 .toList();
+    }
+
+    private List<ConsultationSlot> findUpcomingSlots(Tutor tutor, LocalDate date) {
+        return data.slots().findByTutorId(tutor.id()).stream()
+                .filter(slot -> !slot.startTime().isBefore(clock.instant()))
+                .filter(slot -> slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.BOOKED)
+                .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(date))
+                .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
+                .toList();
+    }
+
+    private TutorSlotView toSlotView(ConsultationSlot slot) {
+        Module module = data.modules().findById(slot.moduleId())
+                .orElseThrow(() -> new IllegalArgumentException("Module does not exist"));
+        return new TutorSlotView(slot.id(), module.code(), slot.startTime(), slot.endTime(), slot.status());
     }
 
     private TutorBookingView toBookingView(Booking booking) {

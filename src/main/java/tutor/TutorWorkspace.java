@@ -32,7 +32,7 @@ final class TutorWorkspace {
     private final ComboBox<Module> modules = new ComboBox<>();
     private final TextField start = field("Start (HH:mm)", "slot-start");
     private final TextField end = field("End (HH:mm)", "slot-end");
-    private final TableView<ConsultationSlot> slots = table("slot-table");
+    private final TableView<TutorSlotView> slots = table("slot-table");
     private final ComboBox<Module> bookingModules = new ComboBox<>();
     private final DatePicker bookingDate = new DatePicker();
     private final ComboBox<BookingStatus> bookingStatus = new ComboBox<>();
@@ -68,7 +68,7 @@ final class TutorWorkspace {
     Parent root() { return root; }
 
     private Tab slotsTab() {
-        column(slots, "Module", slot -> slot.moduleId().toString());
+        column(slots, "Module", TutorSlotView::moduleCode);
         column(slots, "Start (SGT)", slot -> slot.startTime().atZone(SINGAPORE).toLocalDateTime().toString());
         column(slots, "End (SGT)", slot -> slot.endTime().atZone(SINGAPORE).toLocalDateTime().toString());
         column(slots, "Status", slot -> slot.status().toString());
@@ -84,7 +84,7 @@ final class TutorWorkspace {
             end.clear();
         }));
         Button cancel = button("Cancel selected", "cancel-slot", () -> act(() ->
-                service.cancelSlot(selected(slots).id())));
+                service.cancelSlot(selected(slots).slotId())));
         return tab("Slots", slots, new FlowPane(8, 8, date, modules, start, end, create, cancel));
     }
 
@@ -147,7 +147,7 @@ final class TutorWorkspace {
             modules.getItems().setAll(service.findActiveAssignedModules());
             modules.getItems().sort(Comparator.comparing(Module::code));
             bookingModules.getItems().setAll(modules.getItems());
-            slots.getItems().setAll(service.findUpcomingSlots(date.getValue()));
+            slots.getItems().setAll(service.findUpcomingSlotViews(date.getValue()));
             bookings.getItems().setAll(service.findBookingViews(new BookingFilter(
                     bookingModules.getValue() == null ? null : bookingModules.getValue().id(),
                     bookingDate.getValue(), bookingStatus.getValue())));
