@@ -255,6 +255,17 @@ class TutorServiceTest {
     }
 
     @Test
+    void findUpcomingSlotViews_activeTutor_returnsModuleCode() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+
+        assertEquals(List.of(new TutorSlotView(slot.id(), "CS3227", slot.startTime(), slot.endTime(),
+                        SlotStatus.AVAILABLE)),
+                f.service.findUpcomingSlotViews(LocalDate.of(2026, 9, 24)));
+    }
+
+    @Test
     void findBookings_matchingStatus_returnsOnlyTutorsBookings() {
         var f = new TutorFixture();
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
