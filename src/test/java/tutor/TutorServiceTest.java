@@ -355,4 +355,59 @@ class TutorServiceTest {
         assertThrows(SecurityException.class,
                 () -> f.service.findBookings(new BookingFilter(null, null, null)));
     }
+
+    @Test
+    void completeBooking_ownedActiveBookedPair_completesBookingAndSlot() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
+        Booking booking = new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(booking);
+
+        Booking completed = f.service.completeBooking(booking.id());
+
+        assertEquals(BookingStatus.COMPLETED, completed.status());
+        assertEquals(BookingStatus.COMPLETED, f.data.bookings().findById(booking.id()).orElseThrow().status());
+        assertEquals(SlotStatus.COMPLETED, f.data.slots().findById(slot.id()).orElseThrow().status());
+    }
+
+    @Test
+    void completeBooking_otherTutorsBooking_rejectsRequest() {
+        var f = new TutorFixture();
+        Tutor otherTutor = new Tutor(UUID.randomUUID(), "Grace", "grace@example.edu", true);
+        f.data.users().save(otherTutor);
+        f.data.modules().assign(new TutorModule(otherTutor.id(), f.module.id()));
+        ConsultationSlot slot = f.service(otherTutor.id()).createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
+        Booking booking = new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(booking);
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.completeBooking(booking.id()));
+    }
+
+    @Test
+    void completeBooking_nonActiveBooking_rejectsRequest() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
+        Booking booking = new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(),
+                f.now, BookingStatus.CANCELLED);
+        f.data.bookings().save(booking);
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.completeBooking(booking.id()));
+    }
+
+    @Test
+    void completeBooking_nonBookedSlot_rejectsRequest() {
+        var f = new TutorFixture();
+        ConsultationSlot slot = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        Booking booking = new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(), f.now, BookingStatus.ACTIVE);
+        f.data.bookings().save(booking);
+
+        assertThrows(IllegalArgumentException.class, () -> f.service.completeBooking(booking.id()));
+    }
 }

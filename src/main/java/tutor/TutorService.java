@@ -84,6 +84,14 @@ public final class TutorService {
         });
     }
 
+    public Booking completeBooking(UUID bookingId) {
+        UUID validatedBookingId = Objects.requireNonNull(bookingId, "bookingId");
+        return execute("tutor.booking.complete", validatedBookingId, () -> {
+            requireActiveTutor();
+            return data.lifecycle().completeActiveBooking(actorId, validatedBookingId);
+        });
+    }
+
     private ConsultationSlot createSlot(UUID slotId, UUID moduleId, Instant startTime, Instant endTime) {
         Tutor tutor = requireActiveTutor();
         Module module = data.modules().findById(Objects.requireNonNull(moduleId, "moduleId"))
