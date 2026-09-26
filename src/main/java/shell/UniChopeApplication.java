@@ -29,7 +29,7 @@ public final class UniChopeApplication extends Application {
     private Stage stage;
 
     static Path defaultDatabasePath() {
-        return Path.of(System.getProperty("user.home"), ".unichope", "unichope.db");
+        return Path.of("data", "unichope.db");
     }
 
     @Override

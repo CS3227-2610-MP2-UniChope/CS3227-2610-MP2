@@ -5,7 +5,7 @@
 Java SE 25 and JavaFX provide the desktop app. Immutable records in model represent
 users, modules, slots, bookings, and notes. Repository interfaces separate features
 from storage. The application injects one SQLite-backed `Repositories` bundle into
-all role views. It opens `~/.unichope/unichope.db`, creates schema version 1 when
+all role views. It opens `data/unichope.db`, creates schema version 1 when
 needed, and seeds demo accounts only for an empty database. The bundle includes the
 consultation lifecycle. Student remains incomplete; this guide's feature detail
 otherwise focuses on Admin design.

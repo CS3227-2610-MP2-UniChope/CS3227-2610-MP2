@@ -23,7 +23,7 @@ macOS/Linux: use `./gradlew` with the same tasks. `uiTest` requires a graphical 
 
 The login screen is explicitly a **demo account selector**, with one active sample
 account per role. It is not secure authentication. Data is stored in SQLite at
-`~/.unichope/unichope.db` and remains after restart. Admin opens
+`data/unichope.db` and remains after restart. Admin opens
 user/module/assignment management, booking, and statistics tabs; Tutor opens the
 consultation workspace. The Student workspace remains incomplete. All roles can sign out.
 
