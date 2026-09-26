@@ -17,6 +17,7 @@ import javafx.scene.layout.*;
 import javafx.util.StringConverter;
 import model.consultation.ConsultationSlot;
 import model.consultation.BookingStatus;
+import model.consultation.SlotStatus;
 import model.module.Module;
 
 /** JavaFX presentation for tutor slot management; TutorService owns business rules. */
@@ -36,6 +37,11 @@ final class TutorWorkspace {
     private final DatePicker bookingDate = new DatePicker();
     private final ComboBox<BookingStatus> bookingStatus = new ComboBox<>();
     private final TableView<TutorBookingView> bookings = table("booking-table");
+    private final DatePicker historyDate = new DatePicker(LocalDate.now(SINGAPORE));
+    private final ComboBox<SlotStatus> historyStatus = new ComboBox<>();
+    private final TableView<ConsultationSlot> historySlots = table("history-slot-table");
+    private final TableView<TutorBookingView> historyBookings = table("history-booking-table");
+    private final TextArea note = new TextArea();
 
     TutorWorkspace(TutorService service, Runnable signOut) {
         this.service = service;
@@ -47,7 +53,7 @@ final class TutorWorkspace {
         Region space = new Region();
         HBox.setHgrow(space, Priority.ALWAYS);
         root.setTop(new HBox(12, heading, space, refresh, logout));
-        TabPane tabs = new TabPane(slotsTab(), bookingsTab());
+        TabPane tabs = new TabPane(slotsTab(), bookingsTab(), historyTab());
         tabs.setId("tutor-tabs");
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         root.setCenter(tabs);
@@ -102,6 +108,31 @@ final class TutorWorkspace {
         return tab("Bookings", bookings, new FlowPane(8, 8, bookingModules, bookingDate, bookingStatus, filter, complete));
     }
 
+    private Tab historyTab() {
+        column(historySlots, "Start (SGT)", slot -> slot.startTime().atZone(SINGAPORE).toLocalDateTime().toString());
+        column(historySlots, "Status", slot -> slot.status().toString());
+        column(historyBookings, "Student", TutorBookingView::studentName);
+        column(historyBookings, "Module", TutorBookingView::moduleCode);
+        column(historyBookings, "Status", booking -> booking.status().toString());
+        historyDate.setId("history-date");
+        historyStatus.setId("history-status");
+        historyStatus.getItems().setAll(SlotStatus.CANCELLED, SlotStatus.COMPLETED);
+        historyStatus.setValue(SlotStatus.COMPLETED);
+        note.setId("note-content");
+        note.setPromptText("Consultation note");
+        Button filter = button("Filter history", "filter-history", () -> refresh("Filtered"));
+        Button load = button("Load note", "load-note", () -> act(() -> note.setText(service.findNote(
+                selected(historyBookings).bookingId()).map(value -> value.content()).orElse(""))));
+        Button save = button("Save note", "save-note", () -> act(() ->
+                service.saveNote(selected(historyBookings).bookingId(), note.getText())));
+        VBox content = new VBox(10, new FlowPane(8, 8, historyDate, historyStatus, filter), historySlots,
+                new Label("Completed consultations"), historyBookings, note, new FlowPane(8, 8, load, save));
+        content.setPadding(new Insets(10, 0, 0, 0));
+        VBox.setVgrow(historySlots, Priority.ALWAYS);
+        VBox.setVgrow(historyBookings, Priority.ALWAYS);
+        return new Tab("History & Notes", content);
+    }
+
     private Instant instant(String value) {
         if (date.getValue() == null) { throw new IllegalArgumentException("Select a slot date"); }
         try {
@@ -120,12 +151,16 @@ final class TutorWorkspace {
             bookings.getItems().setAll(service.findBookingViews(new BookingFilter(
                     bookingModules.getValue() == null ? null : bookingModules.getValue().id(),
                     bookingDate.getValue(), bookingStatus.getValue())));
+            historySlots.getItems().setAll(service.findSlotHistory(historyDate.getValue(), historyStatus.getValue()));
+            historyBookings.getItems().setAll(service.findBookingViews(new BookingFilter(null, null, BookingStatus.COMPLETED)));
             message.setText(success);
         } catch (RuntimeException failure) {
             modules.getItems().clear();
             slots.getItems().clear();
             bookingModules.getItems().clear();
             bookings.getItems().clear();
+            historySlots.getItems().clear();
+            historyBookings.getItems().clear();
             message.setText(failure instanceof IllegalArgumentException || failure instanceof SecurityException
                     ? failure.getMessage() : "Storage operation failed. Refresh and try again.");
         }
