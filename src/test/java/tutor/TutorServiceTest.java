@@ -266,6 +266,20 @@ class TutorServiceTest {
     }
 
     @Test
+    void findUpcomingSlotViews_noDateFilter_returnsAllFutureSlots() {
+        var f = new TutorFixture();
+        ConsultationSlot first = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        ConsultationSlot second = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(90000), f.now.plusSeconds(91800));
+
+        assertEquals(List.of(
+                        new TutorSlotView(first.id(), "CS3227", first.startTime(), first.endTime(), SlotStatus.AVAILABLE),
+                        new TutorSlotView(second.id(), "CS3227", second.startTime(), second.endTime(), SlotStatus.AVAILABLE)),
+                f.service.findUpcomingSlotViews());
+    }
+
+    @Test
     void findBookings_matchingStatus_returnsOnlyTutorsBookings() {
         var f = new TutorFixture();
         ConsultationSlot slot = f.service.createSlot(f.module.id(),

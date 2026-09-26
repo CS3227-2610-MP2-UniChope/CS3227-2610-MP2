@@ -25,10 +25,11 @@ final class TutorWorkspace {
     private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("HH:mm")
             .withResolverStyle(ResolverStyle.STRICT);
+    private static final DateTimeFormatter DISPLAY_TIME = DateTimeFormatter.ofPattern("dd/MM/uuuu HH:mm");
     private final TutorService service;
     private final BorderPane root = new BorderPane();
     private final Label message = new Label();
-    private final DatePicker date = new DatePicker(LocalDate.now(SINGAPORE));
+    private final DatePicker date = new DatePicker();
     private final ComboBox<Module> modules = new ComboBox<>();
     private final TextField start = field("Start (HH:mm)", "slot-start");
     private final TextField end = field("End (HH:mm)", "slot-end");
@@ -69,10 +70,19 @@ final class TutorWorkspace {
 
     private Tab slotsTab() {
         column(slots, "Module", TutorSlotView::moduleCode);
-        column(slots, "Start (SGT)", slot -> slot.startTime().atZone(SINGAPORE).toLocalDateTime().toString());
-        column(slots, "End (SGT)", slot -> slot.endTime().atZone(SINGAPORE).toLocalDateTime().toString());
+        column(slots, "Start (SGT)", slot -> displayTime(slot.startTime()));
+        column(slots, "End (SGT)", slot -> displayTime(slot.endTime()));
         column(slots, "Status", slot -> slot.status().toString());
         date.setId("slot-date");
+        date.setPromptText("Filter date");
+        date.valueProperty().addListener((observable, oldDate, newDate) -> refresh(""));
+        Button showAllUpcoming = button("Show all upcoming", "show-all-upcoming", () -> {
+            if (date.getValue() == null) {
+                refresh("");
+            } else {
+                date.setValue(null);
+            }
+        });
         modules.setId("slot-module");
         modules.setPromptText("Active assigned module");
         modules.setConverter(converter(Module::code));
@@ -85,14 +95,14 @@ final class TutorWorkspace {
         }));
         Button cancel = button("Cancel selected", "cancel-slot", () -> act(() ->
                 service.cancelSlot(selected(slots).slotId())));
-        return tab("Slots", slots, new FlowPane(8, 8, date, modules, start, end, create, cancel));
+        return tab("Slots", slots, new FlowPane(8, 8, date, showAllUpcoming, modules, start, end, create, cancel));
     }
 
     private Tab bookingsTab() {
         column(bookings, "Student", TutorBookingView::studentName);
         column(bookings, "Module", TutorBookingView::moduleCode);
-        column(bookings, "Start (SGT)", booking -> booking.startTime().atZone(SINGAPORE).toLocalDateTime().toString());
-        column(bookings, "End (SGT)", booking -> booking.endTime().atZone(SINGAPORE).toLocalDateTime().toString());
+        column(bookings, "Start (SGT)", booking -> displayTime(booking.startTime()));
+        column(bookings, "End (SGT)", booking -> displayTime(booking.endTime()));
         column(bookings, "Status", booking -> booking.status().toString());
         bookingModules.setId("booking-module");
         bookingModules.setPromptText("Module");
@@ -109,7 +119,7 @@ final class TutorWorkspace {
     }
 
     private Tab historyTab() {
-        column(historySlots, "Start (SGT)", slot -> slot.startTime().atZone(SINGAPORE).toLocalDateTime().toString());
+        column(historySlots, "Start (SGT)", slot -> displayTime(slot.startTime()));
         column(historySlots, "Status", slot -> slot.status().toString());
         column(historyBookings, "Student", TutorBookingView::studentName);
         column(historyBookings, "Module", TutorBookingView::moduleCode);
@@ -142,12 +152,18 @@ final class TutorWorkspace {
         }
     }
 
+    private static String displayTime(Instant value) {
+        return DISPLAY_TIME.format(value.atZone(SINGAPORE));
+    }
+
     private void refresh(String success) {
         try {
             modules.getItems().setAll(service.findActiveAssignedModules());
             modules.getItems().sort(Comparator.comparing(Module::code));
             bookingModules.getItems().setAll(modules.getItems());
-            slots.getItems().setAll(service.findUpcomingSlotViews(date.getValue()));
+            slots.getItems().setAll(date.getValue() == null
+                    ? service.findUpcomingSlotViews()
+                    : service.findUpcomingSlotViews(date.getValue()));
             bookings.getItems().setAll(service.findBookingViews(new BookingFilter(
                     bookingModules.getValue() == null ? null : bookingModules.getValue().id(),
                     bookingDate.getValue(), bookingStatus.getValue())));
