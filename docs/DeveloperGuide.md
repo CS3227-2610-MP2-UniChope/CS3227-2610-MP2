@@ -4,10 +4,11 @@
 
 Java SE 25 and JavaFX provide the desktop app. Immutable records in model represent
 users, modules, slots, bookings, and notes. Repository interfaces separate features
-from storage. The current app injects a single in-memory Repositories bundle into
-role views; real persistence is Person B's responsibility. The bundle includes the
-consultation lifecycle introduced by the shared implementation. Student and Tutor
-screens are currently placeholders; this guide's feature detail covers Person C.
+from storage. The application injects one SQLite-backed `Repositories` bundle into
+all role views. It opens `~/.unichope/unichope.db`, creates schema version 1 when
+needed, and seeds demo accounts only for an empty database. The bundle includes the
+consultation lifecycle. Student remains incomplete; this guide's feature detail
+otherwise focuses on Admin design.
 
 ## Admin design
 
@@ -23,26 +24,24 @@ was changed for these admin features. Admin controllers use the repository inter
 not concrete fake classes. The UI currently calls services synchronously; reassess
 this when integrating slower persistence to keep the JavaFX thread responsive.
 
-## Shared storage coordination — persistence handoff
+## Shared storage coordination
 
-ConsultationLifecycle.withExclusiveAccess(Supplier<T>) is an additive shared API.
-The in-memory implementation uses the same lock as every repository in its bundle,
-so the admin's checks and single write cannot interleave with other guarded work.
-The original completeActiveBooking operation is unchanged.
+`ConsultationLifecycle.withExclusiveAccess(Supplier<T>)` is an additive shared API.
+Both the in-memory fake and SQLite bundle coordinate all repositories in their own
+bundle. SQLite opens short-lived JDBC connections and runs guarded operations in one
+transaction; a failure rolls back its writes. `completeActiveBooking` changes an
+ACTIVE booking and BOOKED slot to COMPLETED in that same transaction.
 
-The default implementation throws UnsupportedOperationException. This preserves
-source compatibility for existing lifecycle implementations without pretending that
-unprotected updates are safe. Person B must implement the operation with a database
-transaction covering reads and writes through the same injected repository bundle.
-Failures must not leave a committed partial update. Do not build a production bundle
-from independently locked fake repositories or unrelated database connections.
+The interface default throws `UnsupportedOperationException`, preserving source
+compatibility for any storage implementation that does not provide guarded updates.
+Do not build a production bundle from independently locked repositories or unrelated
+database connections.
 
 Person A/B booking and slot-creation services must re-check active users/modules and
 tutor-module assignments within the same atomic boundary. A repository save by itself
-does not validate cross-entity business rules. The admin tests verify guarded
-serialization and the creation protocol, not an as-yet-unimplemented student/tutor
-workflow. Database concurrency and restart persistence tests remain outstanding until
-real storage is supplied; do not claim in-memory tests prove those behaviours.
+does not validate cross-entity business rules. SQLite regression tests cover reopen
+persistence, duplicate validation, transaction rollback, and booking completion;
+they do not claim multi-process database concurrency.
 
 Deactivation preserves identity and history, and no bulk cancellations are performed.
 ACTIVE bookings block even if overdue. Future AVAILABLE means startTime is strictly

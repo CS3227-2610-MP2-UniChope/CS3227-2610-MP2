@@ -1,8 +1,9 @@
 # UniChope user guide
 
-This guide describes the current development app. It uses temporary in-memory data
-and demo account selection; changes disappear when the app closes. It is not yet
-configured for production use. Student and Tutor screens remain placeholders.
+This guide describes the current development app. It uses local SQLite storage at
+`~/.unichope/unichope.db`, so changes remain after the app closes. Login is a demo
+account selector, not secure authentication. The Tutor workspace is available;
+the Student workspace remains incomplete.
 
 ## Setup
 

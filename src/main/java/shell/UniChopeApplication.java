@@ -1,8 +1,9 @@
 package shell;
 
 import admin.AdminMainView;
-import data.memory.InMemoryRepositories;
 import data.repository.Repositories;
+import data.sqlite.SqliteRepositories;
+import java.nio.file.Path;
 import java.util.Map;
 import javafx.application.Application;
 import javafx.geometry.Insets;
@@ -19,13 +20,17 @@ import student.StudentMainView;
 import tutor.TutorMainView;
 
 public final class UniChopeApplication extends Application {
-    private final Repositories repositories = InMemoryRepositories.create();
+    private final Repositories repositories = SqliteRepositories.open(defaultDatabasePath());
     private final Session session = new Session(repositories.users());
     private final RoleRouter router = new RoleRouter(Map.of(
             Role.STUDENT, new StudentMainView(),
             Role.TUTOR, new TutorMainView(),
             Role.ADMIN, new AdminMainView()));
     private Stage stage;
+
+    static Path defaultDatabasePath() {
+        return Path.of(System.getProperty("user.home"), ".unichope", "unichope.db");
+    }
 
     @Override
     public void start(Stage stage) {
@@ -43,7 +48,7 @@ public final class UniChopeApplication extends Application {
         Label title = new Label("UniChope");
         title.setStyle("-fx-font-size: 28px; -fx-font-weight: bold;");
         Label notice = new Label("Demo login — select a sample account. No password authentication. "
-                + "Data is held in memory and resets when the app closes.");
+                + "Data is stored locally on this device.");
         notice.setWrapText(true);
         ComboBox<User> accounts = new ComboBox<>();
         accounts.setId("account-selector");
