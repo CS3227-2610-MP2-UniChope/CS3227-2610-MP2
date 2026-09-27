@@ -1,5 +1,6 @@
 package admin;
 
+import authentication.AuthenticationService;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
@@ -14,6 +15,7 @@ import javafx.util.StringConverter;
 import model.module.Module;
 import model.user.Role;
 import model.user.User;
+import java.util.UUID;
 import ui.AppUi;
 
 /** JavaFX presentation; business checks live in AdminService. */
@@ -21,6 +23,8 @@ final class AdminWorkspace {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("dd MMM uuuu HH:mm")
             .withLocale(Locale.ENGLISH).withZone(ZoneId.of("Asia/Singapore"));
     private final AdminService service;
+    private final AuthenticationService authentication;
+    private final UUID adminId;
     private final Predicate<String> confirm;
     private final BorderPane root = new BorderPane();
     private final Label message = new Label();
@@ -34,8 +38,11 @@ final class AdminWorkspace {
     private final ComboBox<User> tutors = new ComboBox<>();
     private final ComboBox<Module> moduleChoices = new ComboBox<>();
 
-    AdminWorkspace(AdminService service, Runnable signOut, Predicate<String> confirm) {
+    AdminWorkspace(AdminService service, AuthenticationService authentication, UUID adminId,
+                   Runnable signOut, Predicate<String> confirm) {
         this.service = service;
+        this.authentication = authentication;
+        this.adminId = adminId;
         this.confirm = confirm;
         Label heading = new Label("Admin workspace");
         heading.setId("role-heading");
@@ -60,13 +67,36 @@ final class AdminWorkspace {
         TextField email = field("Email", "user-email");
         ComboBox<Role> role = new ComboBox<>();
         role.setId("user-role");
-        role.getItems().setAll(Role.STUDENT, Role.TUTOR);
-        role.setValue(Role.STUDENT);
-        Button add = button("Add user", "add-user", () -> act(() -> {
-            service.addUser(role.getValue(), name.getText(), email.getText());
-            name.clear();
-            email.clear();
-        }));
+        role.getItems().setAll(Role.TUTOR, Role.ADMIN);
+        role.setValue(Role.TUTOR);
+        PasswordField temporaryPassword = passwordField("temporary-password");
+        PasswordField passwordConfirmation = passwordField("confirm-temporary-password");
+        Button add = button("Create account", "add-user", () -> {
+            try {
+                act(() -> {
+                    requireMatchingPasswords(temporaryPassword, passwordConfirmation);
+                    authentication.provisionAccount(adminId, role.getValue(), name.getText(), email.getText(),
+                            temporaryPassword.getText().toCharArray());
+                    name.clear();
+                    email.clear();
+                });
+            } finally {
+                temporaryPassword.clear();
+                passwordConfirmation.clear();
+            }
+        });
+        Button reset = button("Reset selected password", "reset-password", () -> {
+            try {
+                act(() -> {
+                    User selected = selected(users);
+                    requireMatchingPasswords(temporaryPassword, passwordConfirmation);
+                    authentication.resetPassword(adminId, selected.id(), temporaryPassword.getText().toCharArray());
+                });
+            } finally {
+                temporaryPassword.clear();
+                passwordConfirmation.clear();
+            }
+        });
         Button deactivate = button("Deactivate selected", "deactivate-user", () -> act(() -> {
             User selected = selected(users);
             if (confirm.test("Deactivate " + selected.name() + "? Existing history will be retained.")) {
@@ -74,10 +104,14 @@ final class AdminWorkspace {
             }
         }));
         AppUi.primary(add);
+        AppUi.primary(reset);
         AppUi.danger(deactivate);
-        return new Tab("Users", AppUi.section("People make it possible", "Add students and tutors, or manage existing accounts.",
-                AppUi.filters(AppUi.field("Full name", name), AppUi.field("Email address", email), AppUi.field("Role", role)),
-                users, add, deactivate));
+        return new Tab("Users", AppUi.section("People make it possible",
+                "Create Tutor or Admin accounts with a temporary password, or reset an existing account.",
+                AppUi.filters(AppUi.field("Full name", name), AppUi.field("Email address", email),
+                        AppUi.field("Role", role), AppUi.field("Temporary password", temporaryPassword),
+                        AppUi.field("Confirm temporary password", passwordConfirmation)),
+                users, add, reset, deactivate));
     }
 
     private Tab modulesTab() {
@@ -180,7 +214,7 @@ final class AdminWorkspace {
     private void refresh(String success) {
         try {
             AdminSnapshot data = service.load();
-            users.getItems().setAll(data.users().stream().filter(u -> u.role() != Role.ADMIN)
+            users.getItems().setAll(data.users().stream()
                     .sorted(Comparator.comparing(User::name).thenComparing(User::id)).toList());
             modules.getItems().setAll(data.modules().stream().sorted(Comparator.comparing(Module::code)).toList());
             tutors.getItems().setAll(data.users().stream().filter(u -> u.role() == Role.TUTOR && u.isActive())
@@ -267,6 +301,19 @@ final class AdminWorkspace {
         field.setId(id);
         field.setPrefColumnCount(12);
         return field;
+    }
+
+    private static PasswordField passwordField(String id) {
+        PasswordField field = new PasswordField();
+        field.setId(id);
+        field.setPrefColumnCount(12);
+        return field;
+    }
+
+    private static void requireMatchingPasswords(PasswordField password, PasswordField confirmation) {
+        if (!password.getText().equals(confirmation.getText())) {
+            throw new IllegalArgumentException("Temporary passwords do not match");
+        }
     }
 
     private static Button button(String text, String id, Runnable action) {

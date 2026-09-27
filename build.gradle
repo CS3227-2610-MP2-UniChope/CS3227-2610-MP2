@@ -21,6 +21,7 @@ application {
 
 dependencies {
     implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
+    implementation 'de.mkammerer:argon2-jvm:2.12'
     testImplementation platform('org.junit:junit-bom:5.13.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
@@ -32,7 +33,10 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 // Headless-friendly unit tests run by default; UI smoke tests require a desktop.
-test { useJUnitPlatform { excludeTags 'ui' } }
+test {
+    useJUnitPlatform { excludeTags 'ui' }
+    jvmArgs '--enable-native-access=ALL-UNNAMED'
+}
 
 tasks.register('uiTest', Test) {
     description = 'Runs the JavaFX login/routing smoke test on a desktop.'

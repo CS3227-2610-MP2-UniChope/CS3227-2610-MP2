@@ -15,6 +15,7 @@ import model.user.*;
 import util.OperationLog;
 
 final class AdminFixture {
+    private static final String ADMIN_HASH = "$argon2id$v=19$m=19456,t=2,p=1$c2FsdA$YWJjZGVmZ2hpamts";
     final Repositories data;
     final Clock clock = Clock.fixed(Instant.parse("2026-09-25T00:00:00Z"), ZoneOffset.UTC);
     final List<OperationLog.Event> events = new ArrayList<>();
@@ -26,7 +27,8 @@ final class AdminFixture {
 
     AdminFixture(Path database) {
         data = SqliteRepositories.open(database);
-        data.users().save(actor); data.users().save(student); data.users().save(tutor);
+        data.authentication().createInitialAdmin(actor, ADMIN_HASH);
+        data.users().save(student); data.users().save(tutor);
         data.modules().save(module);
         service = new AdminService(data, actor.id(), clock, new OperationLog(clock, events::add));
     }

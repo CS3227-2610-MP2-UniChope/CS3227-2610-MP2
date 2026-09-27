@@ -136,7 +136,8 @@ class AdminServiceTest {
     @Test
     void failingOrUnsupportedStorageDoesNotReportSuccessOrMutate() {
         var unsupported = new Repositories(f.data.users(), f.data.modules(), f.data.slots(),
-                f.data.bookings(), (tutor, booking) -> { throw new UnsupportedOperationException(); });
+                f.data.bookings(), (tutor, booking) -> { throw new UnsupportedOperationException(); },
+                f.data.authentication());
         var events = new java.util.ArrayList<OperationLog.Event>();
         var service = new AdminService(unsupported, f.actor.id(), f.clock, new OperationLog(f.clock, events::add));
         assertThrows(UnsupportedOperationException.class, () -> service.createModule("X", "Test"));
@@ -152,7 +153,8 @@ class AdminServiceTest {
             @Override public java.util.Optional<User> findByEmail(String email) { return f.data.users().findByEmail(email); }
             @Override public List<User> findAll() { return f.data.users().findAll(); }
         };
-        var data = new Repositories(failingUsers, f.data.modules(), f.data.slots(), f.data.bookings(), f.data.lifecycle());
+        var data = new Repositories(failingUsers, f.data.modules(), f.data.slots(), f.data.bookings(),
+                f.data.lifecycle(), f.data.authentication());
         var service = new AdminService(data, f.actor.id(), f.clock, new OperationLog(f.clock, f.events::add));
         assertThrows(IllegalStateException.class, () -> service.addUser(Role.STUDENT, "New", "new@example.edu"));
         assertEquals(3, f.data.users().findAll().size());

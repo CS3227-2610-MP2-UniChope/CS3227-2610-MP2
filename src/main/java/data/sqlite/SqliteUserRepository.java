@@ -79,7 +79,7 @@ final class SqliteUserRepository implements UserRepository {
         }
     }
 
-    private static User map(ResultSet result) throws SQLException {
+    static User map(ResultSet result) throws SQLException {
         UUID id = UUID.fromString(result.getString("id"));
         String name = result.getString("name");
         String email = result.getString("email");

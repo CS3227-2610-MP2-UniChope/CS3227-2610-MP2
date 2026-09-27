@@ -1,22 +1,28 @@
 package shell;
 
+import authentication.AuthenticatedUser;
 import data.repository.UserRepository;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 import model.user.User;
 
-/** Demo session state; re-reads users so deactivation invalidates an open session. */
+/** Verified session state; re-reads users so deactivation invalidates an open session. */
 public final class Session {
     private final UserRepository users;
     private UUID userId;
 
     public Session(UserRepository users) { this.users = Objects.requireNonNull(users, "users"); }
 
-    public User signIn(UUID id) {
+    public User signIn(AuthenticatedUser authenticated) {
         signOut();
-        User user = users.findById(id).filter(User::isActive)
-                .orElseThrow(() -> new IllegalArgumentException("Select an active account"));
+        Objects.requireNonNull(authenticated, "authenticated");
+        if (authenticated.mustChangePassword()) {
+            throw new IllegalArgumentException("Change the temporary password before opening a workspace");
+        }
+        User user = users.findById(authenticated.user().id()).filter(User::isActive)
+                .filter(authenticated.user()::equals)
+                .orElseThrow(() -> new IllegalArgumentException("Sign in again to continue"));
         userId = user.id();
         return user;
     }

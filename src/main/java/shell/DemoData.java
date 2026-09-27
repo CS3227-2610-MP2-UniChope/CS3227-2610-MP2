@@ -8,11 +8,8 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import model.module.Module;
-import model.user.Admin;
-import model.user.Student;
-import model.user.Tutor;
 
-/** Sample identities and named NUS CS curriculum requirements. This is not authentication. */
+/** Named NUS CS curriculum requirements for local demo data. */
 public final class DemoData {
     // Named requirements in the NUS BComp (CS) AY2026/27 curriculum.
     // https://www.comp.nus.edu.sg/cug/per-cohort/cs/cs-26-27/
@@ -37,14 +34,6 @@ public final class DemoData {
 
     public static void seed(Repositories repositories) {
         repositories.lifecycle().withExclusiveAccess(() -> {
-            if (repositories.users().findAll().isEmpty()) {
-                repositories.users().save(new Student(UUID.fromString("00000000-0000-0000-0000-000000000001"),
-                        "Demo Student", "student@example.edu", true));
-                repositories.users().save(new Tutor(UUID.fromString("00000000-0000-0000-0000-000000000002"),
-                        "Demo Tutor", "tutor@example.edu", true));
-                repositories.users().save(new Admin(UUID.fromString("00000000-0000-0000-0000-000000000003"),
-                        "Demo Admin", "admin@example.edu", true));
-            }
             Set<String> codes = repositories.modules().findAll().stream()
                     .map(module -> module.code().toUpperCase(Locale.ROOT)).collect(Collectors.toSet());
             for (Course course : CS_COURSES) {
