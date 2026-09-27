@@ -11,6 +11,7 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TabPane;
 import javafx.scene.control.TextArea;
 import javafx.stage.Stage;
 import model.consultation.Booking;
@@ -53,6 +54,8 @@ class TutorHistoryUiTest {
                 note.clear();
                 ((Button) root.lookup("#load-note")).fire();
                 assertEquals("Discussed testing", note.getText());
+                ((TabPane) root.lookup("#tutor-tabs")).getSelectionModel().select(2);
+                support.UiSnapshots.save(root, "tutor-history-small");
             } finally { stage.close(); }
             return null;
         });

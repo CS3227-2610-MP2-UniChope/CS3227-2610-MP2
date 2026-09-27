@@ -1,8 +1,5 @@
 package shell;
 
-import java.awt.image.BufferedImage;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -11,7 +8,6 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.stage.Stage;
-import javax.imageio.ImageIO;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
@@ -29,6 +25,10 @@ class ShellUiTest {
             try {
                 new UniChopeApplication().start(stage);
                 snapshot(stage, "login");
+                var loginRoot = stage.getScene().getRoot();
+                loginRoot.resize(900, 660);
+                support.UiSnapshots.save(loginRoot, "login-small");
+                loginRoot.resize(1180, 780);
                 for (String role : new String[] {"Student", "Tutor", "Admin"}) {
                     var root = stage.getScene().getRoot();
                     ComboBox<?> accounts = (ComboBox<?>) root.lookup("#account-selector");
@@ -57,17 +57,6 @@ class ShellUiTest {
     }
 
     private static void snapshot(Stage stage, String name) throws Exception {
-        var image = stage.getScene().snapshot(null);
-        int width = (int) image.getWidth();
-        int height = (int) image.getHeight();
-        BufferedImage output = new BufferedImage(width, height, BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < height; y++) {
-            for (int x = 0; x < width; x++) {
-                output.setRGB(x, y, image.getPixelReader().getArgb(x, y));
-            }
-        }
-        Path directory = Path.of("build", "reports", "ui-snapshots");
-        Files.createDirectories(directory);
-        ImageIO.write(output, "png", directory.resolve(name + ".png").toFile());
+        support.UiSnapshots.save(stage.getScene().getRoot(), name);
     }
 }
