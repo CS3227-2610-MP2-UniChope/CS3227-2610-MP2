@@ -1,7 +1,5 @@
 package admin;
 
-import java.awt.image.BufferedImage;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -12,7 +10,6 @@ import javafx.scene.Parent;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.stage.Stage;
-import javax.imageio.ImageIO;
 import model.consultation.*;
 import model.module.Module;
 import model.user.Role;
@@ -143,16 +140,6 @@ class AdminUiTest {
         return (ComboBox<T>) root.lookup("#" + id);
     }
     private static void snapshot(Stage stage, String name) throws Exception {
-        var image = stage.getScene().snapshot(null);
-        BufferedImage output = new BufferedImage((int) image.getWidth(), (int) image.getHeight(),
-                BufferedImage.TYPE_INT_ARGB);
-        for (int y = 0; y < output.getHeight(); y++) {
-            for (int x = 0; x < output.getWidth(); x++) {
-                output.setRGB(x, y, image.getPixelReader().getArgb(x, y));
-            }
-        }
-        Path directory = Path.of("build", "reports", "admin-snapshots");
-        Files.createDirectories(directory);
-        ImageIO.write(output, "png", directory.resolve(name + ".png").toFile());
+        support.UiSnapshots.save(stage.getScene().getRoot(), "admin-" + name);
     }
 }

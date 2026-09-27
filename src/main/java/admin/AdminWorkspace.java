@@ -7,7 +7,6 @@ import java.util.Locale;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import javafx.beans.property.ReadOnlyStringWrapper;
-import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -15,6 +14,7 @@ import javafx.util.StringConverter;
 import model.module.Module;
 import model.user.Role;
 import model.user.User;
+import ui.AppUi;
 
 /** JavaFX presentation; business checks live in AdminService. */
 final class AdminWorkspace {
@@ -39,21 +39,13 @@ final class AdminWorkspace {
         this.confirm = confirm;
         Label heading = new Label("Admin workspace");
         heading.setId("role-heading");
-        heading.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
         Button refresh = button("Refresh", "admin-refresh", () -> refresh("Refreshed"));
         Button logout = button("Sign out", "sign-out", signOut);
-        Region space = new Region();
-        HBox.setHgrow(space, Priority.ALWAYS);
-        root.setTop(new HBox(12, heading, space, refresh, logout));
         TabPane tabs = new TabPane(usersTab(), modulesTab(), assignmentsTab(), bookingsTab(), statisticsTab());
         tabs.setId("admin-tabs");
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        root.setCenter(tabs);
         message.setId("admin-message");
-        message.setWrapText(true);
-        root.setBottom(message);
-        root.setPadding(new Insets(18));
-        BorderPane.setMargin(tabs, new Insets(16, 0, 12, 0));
+        AppUi.workspace(root, heading, "Keep your consultation community running smoothly.", refresh, logout, tabs, message);
         refresh("");
     }
 
@@ -81,7 +73,11 @@ final class AdminWorkspace {
                 service.deactivateUser(selected.id());
             }
         }));
-        return tab("Users", users, new FlowPane(8, 8, name, email, role, add, deactivate));
+        AppUi.primary(add);
+        AppUi.danger(deactivate);
+        return new Tab("Users", AppUi.section("People make it possible", "Add students and tutors, or manage existing accounts.",
+                AppUi.filters(AppUi.field("Full name", name), AppUi.field("Email address", email), AppUi.field("Role", role)),
+                users, add, deactivate));
     }
 
     private Tab modulesTab() {
@@ -105,7 +101,10 @@ final class AdminWorkspace {
                 service.deactivateModule(chosen.id());
             }
         }));
-        return tab("Modules", modules, new FlowPane(8, 8, code, name, add, edit, deactivate));
+        AppUi.primary(add);
+        AppUi.danger(deactivate);
+        return new Tab("Modules", AppUi.section("The course catalogue", "Select a course to edit its details. Deactivation preserves its history.",
+                AppUi.filters(AppUi.field("Course code", code), AppUi.field("Course name", name)), modules, add, edit, deactivate));
     }
 
     private Tab assignmentsTab() {
@@ -129,7 +128,10 @@ final class AdminWorkspace {
                 service.unassign(chosen.tutorId(), chosen.moduleId());
             }
         }));
-        return tab("Assignments", assignments, new FlowPane(8, 8, tutors, moduleChoices, assign, unassign));
+        AppUi.primary(assign);
+        AppUi.danger(unassign);
+        return new Tab("Assignments", AppUi.section("Connect tutors to courses", "Assign an active tutor so they can offer consultation slots.",
+                AppUi.filters(AppUi.field("Tutor", tutors), AppUi.field("Course", moduleChoices)), assignments, assign, unassign));
     }
 
     private Tab bookingsTab() {
@@ -139,7 +141,8 @@ final class AdminWorkspace {
         column(bookings, "Start (SGT)", b -> b.start() == null ? "Unavailable" : TIME.format(b.start()));
         column(bookings, "End (SGT)", b -> b.end() == null ? "Unavailable" : TIME.format(b.end()));
         column(bookings, "Status", b -> b.status().toString());
-        return tab("Bookings", bookings, new Label("All bookings, including cancelled and completed consultations."));
+        return new Tab("Bookings", AppUi.section("Every consultation, in one place", "All bookings, including cancelled and completed consultations. Times shown in SGT.",
+                new Region(), bookings));
     }
 
     private Tab statisticsTab() {
@@ -151,11 +154,26 @@ final class AdminWorkspace {
         column(moduleCounts, "Bookings", c -> Long.toString(c.count()));
         column(tutorCounts, "Tutor", AdminQueries.CountRow::label);
         column(tutorCounts, "Bookings", c -> Long.toString(c.count()));
-        VBox layout = new VBox(10, statistics,
-                new Label("All time; each rate uses all bookings as its denominator."), moduleCounts, tutorCounts);
+        statistics.getStyleClass().add("section-title");
+        moduleCounts.setMinHeight(80);
+        tutorCounts.setMinHeight(80);
+        moduleCounts.setPlaceholder(new Label("No bookings yet"));
+        tutorCounts.setPlaceholder(new Label("No bookings yet"));
+        VBox byCourse = new VBox(12, AppUi.label("Bookings by course", "field-label"), moduleCounts);
+        VBox byTutor = new VBox(12, AppUi.label("Bookings by tutor", "field-label"), tutorCounts);
+        byCourse.setMinWidth(0);
+        byTutor.setMinWidth(0);
+        byCourse.setPrefWidth(440);
+        byTutor.setPrefWidth(440);
+        HBox.setHgrow(byCourse, Priority.ALWAYS);
+        HBox.setHgrow(byTutor, Priority.ALWAYS);
+        HBox breakdowns = new HBox(24, byCourse, byTutor);
+        VBox layout = new VBox(18, AppUi.label("A view of your community", "section-title"), statistics,
+                AppUi.label("All time · Rates include every booking status.", "muted"), breakdowns);
+        VBox.setVgrow(breakdowns, Priority.ALWAYS);
         VBox.setVgrow(moduleCounts, Priority.ALWAYS);
         VBox.setVgrow(tutorCounts, Priority.ALWAYS);
-        layout.setPadding(new Insets(10, 0, 0, 0));
+        layout.getStyleClass().add("content-section");
         return new Tab("Statistics", layout);
     }
 
@@ -222,7 +240,7 @@ final class AdminWorkspace {
     private static <T> TableView<T> table(String id) {
         TableView<T> table = new TableView<>();
         table.setId(id);
-        table.setPlaceholder(new Label("No records"));
+        table.setPlaceholder(AppUi.empty("Nothing here yet", "Records will appear here as your community grows."));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         return table;
     }
@@ -240,13 +258,6 @@ final class AdminWorkspace {
         });
         column.setPrefWidth(160);
         table.getColumns().add(column);
-    }
-
-    private static Tab tab(String title, TableView<?> table, javafx.scene.Node controls) {
-        VBox content = new VBox(10, controls, table);
-        content.setPadding(new Insets(10, 0, 0, 0));
-        VBox.setVgrow(table, Priority.ALWAYS);
-        return new Tab(title, content);
     }
 
     private static TextField field(String prompt, String id) {

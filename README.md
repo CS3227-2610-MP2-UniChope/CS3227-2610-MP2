@@ -25,14 +25,16 @@ The login screen is explicitly a **demo account selector**, with one active samp
 account per role. It is not secure authentication. Data is stored in SQLite at
 `data/unichope.db` and remains after restart. Admin opens
 user/module/assignment management, booking, and statistics tabs; Tutor opens the
-consultation workspace. The Student workspace remains incomplete. All roles can sign out.
+consultation workspace; Student can book and cancel consultations. All roles can sign out.
+The demo seeds active modules from the NUS CS AY2026/27 curriculum, while preserving
+modules already stored in the database.
 
 `installDist` creates `build/install/UniChope/` containing launchers and the current
 platform's runtime dependencies. This is a development distribution, not the final
 cross-platform release JAR required by the assignment.
 
-The application uses one SQLite-backed repository bundle for every role. The
-in-memory repositories remain as isolated test fakes; repository interfaces keep
-storage separate from role services and JavaFX views.
+The application uses one SQLite-backed repository bundle for every role. Tests use
+temporary SQLite databases; repository interfaces keep storage separate from role
+services and JavaFX views.
 
 See [User Guide](docs/UserGuide.md) for available actions and [Developer Guide](docs/DeveloperGuide.md) for design, testing, logging, and persistence.

@@ -53,6 +53,7 @@ class TutorUiTest {
                 TableView<TutorSlotView> slots = (TableView<TutorSlotView>) root.lookup("#slot-table");
                 assertEquals(1, slots.getItems().size());
                 assertEquals("CS3227", slots.getItems().getFirst().moduleCode());
+                support.UiSnapshots.save(root, "tutor-slots-small");
                 @SuppressWarnings("unchecked")
                 TableColumn<TutorSlotView, String> startColumn =
                         (TableColumn<TutorSlotView, String>) slots.getColumns().get(1);

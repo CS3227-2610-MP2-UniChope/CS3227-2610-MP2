@@ -9,6 +9,7 @@ import model.user.Role;
 import model.user.User;
 import shell.RoleView;
 import util.OperationLog;
+import ui.AppUi;
 
 public final class StudentMainView implements RoleView {
     @Override
@@ -22,6 +23,7 @@ public final class StudentMainView implements RoleView {
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
             alert.setTitle("Cancel booking");
             alert.setHeaderText("Release this consultation slot?");
+            AppUi.theme(alert.getDialogPane());
             return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
         }).root();
     }
