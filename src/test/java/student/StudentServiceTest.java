@@ -5,6 +5,7 @@ import data.sqlite.SqliteRepositories;
 import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -74,6 +75,31 @@ class StudentServiceTest {
         var replacement = student.book(first.id());
         assertNotEquals(booking.id(), replacement.id());
         assertEquals(2, data.bookings().findBySlotId(first.id()).size());
+    }
+
+    @Test
+    void searchesAvailableSlotsByModuleTutorAndSingaporeDate() {
+        setup();
+        var first = slot(3600);
+        UUID otherTutorId = UUID.randomUUID();
+        UUID otherModuleId = UUID.randomUUID();
+        data.users().save(new Tutor(otherTutorId, "Alice Tan", "alice@example.edu", true));
+        data.modules().save(new Module(otherModuleId, "CS2", "Data Structures", true));
+        data.modules().assign(new TutorModule(otherTutorId, otherModuleId));
+        var nextDay = data.slots().save(new ConsultationSlot(UUID.randomUUID(), otherTutorId, otherModuleId,
+                now.plusSeconds(14 * 3600), now.plusSeconds(14 * 3600 + 1800), SlotStatus.AVAILABLE));
+
+        assertEquals(2, student.load().available().size());
+        assertEquals(first.id(), student.load(new SlotFilter(" cs1 ", "", null)).available().getFirst().id());
+        assertEquals(nextDay.id(), student.load(new SlotFilter(" DATA ", " ALICE ",
+                LocalDate.of(2026, 9, 27))).available().getFirst().id());
+        assertTrue(student.load(new SlotFilter("CS2", null, LocalDate.of(2026, 9, 26)))
+                .available().isEmpty());
+        assertEquals(1, student.load(new SlotFilter(null, null, LocalDate.of(2026, 9, 26)))
+                .available().size());
+
+        student.book(nextDay.id());
+        assertTrue(student.load(new SlotFilter("CS2", "Alice", null)).available().isEmpty());
     }
 
     @Test

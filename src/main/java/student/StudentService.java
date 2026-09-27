@@ -3,8 +3,10 @@ package student;
 import data.repository.Repositories;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.UUID;
 import model.consultation.Booking;
@@ -19,6 +21,7 @@ import util.OperationLog;
 
 /** Student-facing queries and actions; storage owns atomic booking transitions. */
 public final class StudentService {
+    private static final ZoneId SINGAPORE = ZoneId.of("Asia/Singapore");
     public record SlotRow(UUID id, String module, String tutor, Instant start, Instant end) { }
     public record BookingRow(UUID id, String module, String tutor, Instant start, Instant end,
                              BookingStatus status) { }
@@ -37,6 +40,11 @@ public final class StudentService {
     }
 
     public Snapshot load() {
+        return load(new SlotFilter(null, null, null));
+    }
+
+    public Snapshot load(SlotFilter filter) {
+        Objects.requireNonNull(filter, "filter");
         return data.lifecycle().withExclusiveAccess(() -> {
             requireStudent();
             Instant now = clock.instant();
@@ -51,6 +59,7 @@ public final class StudentService {
                             && s.startTime().isAfter(now) && !activeSlotIds.contains(s.id()))
                     .filter(s -> activeTutor(users.get(s.tutorId())) && activeModule(modules.get(s.moduleId()))
                             && assigned.contains(new TutorModule(s.tutorId(), s.moduleId())))
+                    .filter(s -> matches(s, modules.get(s.moduleId()), users.get(s.tutorId()), filter))
                     .map(s -> new SlotRow(s.id(), modules.get(s.moduleId()).code(),
                             users.get(s.tutorId()).name(), s.startTime(), s.endTime()))
                     .sorted(Comparator.comparing(SlotRow::start).thenComparing(SlotRow::id)).toList();
@@ -100,5 +109,16 @@ public final class StudentService {
 
     private static boolean activeModule(Module module) {
         return module != null && module.isActive();
+    }
+
+    private static boolean matches(ConsultationSlot slot, Module module, User tutor, SlotFilter filter) {
+        return (contains(module.code(), filter.module()) || contains(module.name(), filter.module()))
+                && contains(tutor.name(), filter.tutor())
+                && (filter.date() == null
+                        || slot.startTime().atZone(SINGAPORE).toLocalDate().equals(filter.date()));
+    }
+
+    private static boolean contains(String value, String query) {
+        return value.toLowerCase(Locale.ROOT).contains(query);
     }
 }

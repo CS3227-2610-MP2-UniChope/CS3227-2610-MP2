@@ -9,12 +9,15 @@ import javafx.beans.property.ReadOnlyStringWrapper;
 import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
+import javafx.scene.control.DatePicker;
 import javafx.scene.control.Label;
 import javafx.scene.control.Tab;
 import javafx.scene.control.TabPane;
 import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
+import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.FlowPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
@@ -28,6 +31,9 @@ final class StudentWorkspace {
     private final Predicate<String> confirm;
     private final BorderPane root = new BorderPane();
     private final TableView<StudentService.SlotRow> slots = table("student-slots");
+    private final TextField moduleSearch = new TextField();
+    private final TextField tutorSearch = new TextField();
+    private final DatePicker slotDate = new DatePicker();
     private final TableView<StudentService.BookingRow> bookings = table("student-bookings");
     private final Label message = new Label();
 
@@ -62,7 +68,24 @@ final class StudentWorkspace {
         column(slots, "End (SGT)", s -> TIME.format(s.end()));
         Button book = button("Book selected", "student-book", () -> act(() ->
                 service.book(selected(slots).id())));
-        return tab("Available slots", slots, book);
+        moduleSearch.setId("student-slot-module");
+        moduleSearch.setPromptText("Module code or name");
+        tutorSearch.setId("student-slot-tutor");
+        tutorSearch.setPromptText("Tutor name");
+        slotDate.setId("student-slot-date");
+        slotDate.setPromptText("Date (SGT)");
+        Button search = button("Search", "student-slot-search", () -> refresh("Filtered"));
+        Button clear = button("Clear", "student-slot-clear", () -> {
+            moduleSearch.clear();
+            tutorSearch.clear();
+            slotDate.setValue(null);
+            refresh("Filters cleared");
+        });
+        VBox layout = new VBox(10, new FlowPane(8, 8, moduleSearch, tutorSearch, slotDate, search, clear),
+                book, slots);
+        layout.setPadding(new Insets(10, 0, 0, 0));
+        VBox.setVgrow(slots, Priority.ALWAYS);
+        return new Tab("Available slots", layout);
     }
 
     private Tab bookingsTab() {
@@ -94,7 +117,8 @@ final class StudentWorkspace {
 
     private void refresh(String success) {
         try {
-            StudentService.Snapshot snapshot = service.load();
+            StudentService.Snapshot snapshot = service.load(new SlotFilter(
+                    moduleSearch.getText(), tutorSearch.getText(), slotDate.getValue()));
             slots.getItems().setAll(snapshot.available());
             bookings.getItems().setAll(snapshot.bookings());
             message.setText(success);
