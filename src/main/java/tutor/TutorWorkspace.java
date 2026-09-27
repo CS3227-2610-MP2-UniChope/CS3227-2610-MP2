@@ -10,7 +10,6 @@ import java.time.format.ResolverStyle;
 import java.util.Comparator;
 import java.util.function.Function;
 import javafx.beans.property.ReadOnlyStringWrapper;
-import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.*;
 import javafx.scene.layout.*;
@@ -19,6 +18,7 @@ import model.consultation.ConsultationSlot;
 import model.consultation.BookingStatus;
 import model.consultation.SlotStatus;
 import model.module.Module;
+import ui.AppUi;
 
 /** JavaFX presentation for tutor slot management; TutorService owns business rules. */
 final class TutorWorkspace {
@@ -48,21 +48,13 @@ final class TutorWorkspace {
         this.service = service;
         Label heading = new Label("Tutor workspace");
         heading.setId("role-heading");
-        heading.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
         Button refresh = button("Refresh", "tutor-refresh", () -> refresh("Refreshed"));
         Button logout = button("Sign out", "sign-out", signOut);
-        Region space = new Region();
-        HBox.setHgrow(space, Priority.ALWAYS);
-        root.setTop(new HBox(12, heading, space, refresh, logout));
         TabPane tabs = new TabPane(slotsTab(), bookingsTab(), historyTab());
         tabs.setId("tutor-tabs");
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        root.setCenter(tabs);
         message.setId("tutor-message");
-        message.setWrapText(true);
-        root.setBottom(message);
-        root.setPadding(new Insets(18));
-        BorderPane.setMargin(tabs, new Insets(16, 0, 12, 0));
+        AppUi.workspace(root, heading, "Make room for questions. Help the next idea take shape.", refresh, logout, tabs, message);
         refresh("");
     }
 
@@ -89,7 +81,11 @@ final class TutorWorkspace {
         }));
         Button cancel = button("Cancel selected", "cancel-slot", () -> act(() ->
                 service.cancelSlot(selected(slots).slotId())));
-        return tab("Slots", slots, new FlowPane(8, 8, date, modules, start, end, create, cancel));
+        AppUi.primary(create);
+        AppUi.danger(cancel);
+        return new Tab("Slots", AppUi.section("Make time for your students", "Choose a date and course to offer a consultation. Times shown in SGT.",
+                AppUi.filters(AppUi.field("Date · SGT", date), AppUi.field("Assigned course", modules),
+                        AppUi.field("Starts · HH:mm", start), AppUi.field("Ends · HH:mm", end)), slots, create, cancel));
     }
 
     private Tab bookingsTab() {
@@ -109,7 +105,10 @@ final class TutorWorkspace {
         Button filter = button("Filter", "filter-bookings", () -> refresh("Filtered"));
         Button complete = button("Complete selected", "complete-booking", () -> act(() ->
                 service.completeBooking(selected(bookings).bookingId())));
-        return tab("Bookings", bookings, new FlowPane(8, 8, bookingModules, bookingDate, bookingStatus, filter, complete));
+        AppUi.primary(complete);
+        return new Tab("Bookings", AppUi.section("Your consultation schedule", "Find a booking and mark the consultation complete when you are done.",
+                AppUi.filters(AppUi.field("Course", bookingModules), AppUi.field("Date · SGT", bookingDate),
+                        AppUi.field("Status", bookingStatus), filter), bookings, complete));
     }
 
     private Tab historyTab() {
@@ -129,9 +128,31 @@ final class TutorWorkspace {
                 selected(historyBookings).bookingId()).map(value -> value.content()).orElse(""))));
         Button save = button("Save note", "save-note", () -> act(() ->
                 service.saveNote(selected(historyBookings).bookingId(), note.getText())));
-        VBox content = new VBox(10, new FlowPane(8, 8, historyDate, historyStatus, filter), historySlots,
-                new Label("Completed consultations"), historyBookings, note, new FlowPane(8, 8, load, save));
-        content.setPadding(new Insets(10, 0, 0, 0));
+        AppUi.primary(save);
+        note.setPrefRowCount(3);
+        note.setWrapText(true);
+        historySlots.setPlaceholder(new Label("No slots on this date"));
+        historyBookings.setPlaceholder(new Label("No completed consultations"));
+        historySlots.setMinHeight(80);
+        historyBookings.setMinHeight(80);
+        historyBookings.setPrefHeight(150);
+        note.setMinHeight(60);
+        note.setPrefHeight(85);
+        note.setMaxHeight(100);
+        VBox slotHistory = new VBox(10, AppUi.label("Slot history", "field-label"), historySlots);
+        VBox notes = new VBox(10, AppUi.label("Select a completed consultation to load or save notes", "field-label"),
+                historyBookings, note, AppUi.filters(load, save));
+        slotHistory.setMinWidth(0);
+        notes.setMinWidth(0);
+        slotHistory.setPrefWidth(440);
+        notes.setPrefWidth(440);
+        HBox.setHgrow(slotHistory, Priority.ALWAYS);
+        HBox.setHgrow(notes, Priority.ALWAYS);
+        HBox columns = new HBox(24, slotHistory, notes);
+        VBox content = new VBox(16, AppUi.label("Keep the conversation moving", "section-title"),
+                AppUi.filters(AppUi.field("Date · SGT", historyDate), AppUi.field("Slot status", historyStatus), filter), columns);
+        content.getStyleClass().add("content-section");
+        VBox.setVgrow(columns, Priority.ALWAYS);
         VBox.setVgrow(historySlots, Priority.ALWAYS);
         VBox.setVgrow(historyBookings, Priority.ALWAYS);
         return new Tab("History & Notes", content);
@@ -193,7 +214,7 @@ final class TutorWorkspace {
     private static <T> TableView<T> table(String id) {
         TableView<T> table = new TableView<>();
         table.setId(id);
-        table.setPlaceholder(new Label("No records"));
+        table.setPlaceholder(AppUi.empty("No consultations to show", "Choose another date or refresh to see the latest records."));
         table.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
         return table;
     }
@@ -203,13 +224,6 @@ final class TutorWorkspace {
         column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(value.apply(cell.getValue())));
         column.setPrefWidth(150);
         table.getColumns().add(column);
-    }
-
-    private static Tab tab(String title, TableView<?> table, javafx.scene.Node controls) {
-        VBox content = new VBox(10, controls, table);
-        content.setPadding(new Insets(10, 0, 0, 0));
-        VBox.setVgrow(table, Priority.ALWAYS);
-        return new Tab(title, content);
     }
 
     private static TextField field(String prompt, String id) {

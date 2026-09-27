@@ -3,6 +3,7 @@ package student;
 import data.repository.Repositories;
 import java.time.Clock;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
@@ -42,6 +43,11 @@ public final class StudentService {
 
     public Snapshot load() {
         return load(new SlotFilter(null, null, null), new BookingFilter(null, null, null));
+    }
+
+    /** Calendar dates use the same zone as the displayed consultation times. */
+    public LocalDate today() {
+        return LocalDate.ofInstant(clock.instant(), SINGAPORE);
     }
 
     public Snapshot load(SlotFilter filter) {

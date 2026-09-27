@@ -8,6 +8,7 @@ import javafx.scene.control.ButtonType;
 import model.user.User;
 import shell.RoleView;
 import util.OperationLog;
+import ui.AppUi;
 
 /** Admin-owned entry point; existing shell/other role contracts stay unchanged. */
 public final class AdminMainView implements RoleView {
@@ -19,6 +20,7 @@ public final class AdminMainView implements RoleView {
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
             alert.setTitle("Confirm change");
             alert.setHeaderText("Preserve consultation history");
+            AppUi.theme(alert.getDialogPane());
             return alert.showAndWait().filter(ButtonType.OK::equals).isPresent();
         }).root();
     }

@@ -6,7 +6,6 @@ import java.util.Locale;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import javafx.beans.property.ReadOnlyStringWrapper;
-import javafx.geometry.Insets;
 import javafx.scene.Parent;
 import javafx.scene.control.Button;
 import javafx.scene.control.DatePicker;
@@ -17,12 +16,9 @@ import javafx.scene.control.TableColumn;
 import javafx.scene.control.TableView;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.BorderPane;
-import javafx.scene.layout.FlowPane;
-import javafx.scene.layout.HBox;
-import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 import model.consultation.BookingStatus;
+import ui.AppUi;
 
 final class StudentWorkspace {
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("dd MMM uuuu HH:mm")
@@ -30,10 +26,7 @@ final class StudentWorkspace {
     private final StudentService service;
     private final Predicate<String> confirm;
     private final BorderPane root = new BorderPane();
-    private final TableView<StudentService.SlotRow> slots = table("student-slots");
-    private final TextField moduleSearch = new TextField();
-    private final TextField tutorSearch = new TextField();
-    private final DatePicker slotDate = new DatePicker();
+    private final StudentSlotBrowser slotBrowser;
     private final TableView<StudentService.BookingRow> bookings = table("student-bookings");
     private final TextField bookingCourseSearch = new TextField();
     private final TextField bookingTutorSearch = new TextField();
@@ -43,52 +36,24 @@ final class StudentWorkspace {
     StudentWorkspace(StudentService service, Runnable signOut, Predicate<String> confirm) {
         this.service = service;
         this.confirm = confirm;
+        slotBrowser = new StudentSlotBrowser(service::today, () -> refresh(""),
+                id -> act(() -> service.book(id)));
         Label heading = new Label("Student workspace");
         heading.setId("role-heading");
-        heading.setStyle("-fx-font-size: 24px; -fx-font-weight: bold;");
         Button refresh = button("Refresh", "student-refresh", () -> refresh("Refreshed"));
         Button logout = button("Sign out", "sign-out", signOut);
-        Region space = new Region();
-        HBox.setHgrow(space, Priority.ALWAYS);
-        root.setTop(new HBox(12, heading, space, refresh, logout));
         TabPane tabs = new TabPane(slotsTab(), bookingsTab());
+        tabs.setId("student-tabs");
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
-        root.setCenter(tabs);
         message.setId("student-message");
-        message.setWrapText(true);
-        root.setBottom(message);
-        root.setPadding(new Insets(18));
-        BorderPane.setMargin(tabs, new Insets(16, 0, 12, 0));
+        AppUi.workspace(root, heading, "A little guidance. A clearer way forward.", refresh, logout, tabs, message);
         refresh("");
     }
 
     Parent root() { return root; }
 
     private Tab slotsTab() {
-        column(slots, "Module", StudentService.SlotRow::module);
-        column(slots, "Tutor", StudentService.SlotRow::tutor);
-        column(slots, "Start (SGT)", s -> TIME.format(s.start()));
-        column(slots, "End (SGT)", s -> TIME.format(s.end()));
-        Button book = button("Book selected", "student-book", () -> act(() ->
-                service.book(selected(slots).id())));
-        moduleSearch.setId("student-slot-module");
-        moduleSearch.setPromptText("Module code or name");
-        tutorSearch.setId("student-slot-tutor");
-        tutorSearch.setPromptText("Tutor name");
-        slotDate.setId("student-slot-date");
-        slotDate.setPromptText("Date (SGT)");
-        Button search = button("Search", "student-slot-search", () -> refresh("Filtered"));
-        Button clear = button("Clear", "student-slot-clear", () -> {
-            moduleSearch.clear();
-            tutorSearch.clear();
-            slotDate.setValue(null);
-            refresh("Filters cleared");
-        });
-        VBox layout = new VBox(10, new FlowPane(8, 8, moduleSearch, tutorSearch, slotDate, search, clear),
-                book, slots);
-        layout.setPadding(new Insets(10, 0, 0, 0));
-        VBox.setVgrow(slots, Priority.ALWAYS);
-        return new Tab("Available slots", layout);
+        return new Tab("Available slots", slotBrowser.root());
     }
 
     private Tab bookingsTab() {
@@ -111,10 +76,13 @@ final class StudentWorkspace {
             bookingDate.setValue(null);
             refresh("Filters cleared");
         });
-        VBox layout = new VBox(10, new FlowPane(8, 8, bookingCourseSearch, bookingTutorSearch,
-                bookingDate, search, clear), cancel, bookings);
-        layout.setPadding(new Insets(10, 0, 0, 0));
-        VBox.setVgrow(bookings, Priority.ALWAYS);
+        bookingCourseSearch.setOnAction(event -> search.fire());
+        bookingTutorSearch.setOnAction(event -> search.fire());
+        AppUi.danger(cancel);
+        bookings.setPlaceholder(AppUi.empty("No bookings to show", "Clear your filters or book a consultation in Available slots."));
+        VBox layout = AppUi.section("Your time, organised", "Review upcoming consultations and your booking history.",
+                AppUi.filters(AppUi.field("Course", bookingCourseSearch), AppUi.field("Tutor", bookingTutorSearch),
+                        AppUi.field("Date · SGT", bookingDate), search, clear), bookings, cancel);
         return new Tab("My bookings", layout);
     }
 
@@ -138,14 +106,15 @@ final class StudentWorkspace {
     private void refresh(String success) {
         try {
             StudentService.Snapshot snapshot = service.load(
-                    new SlotFilter(moduleSearch.getText(), tutorSearch.getText(), slotDate.getValue()),
+                    slotBrowser.filter(),
                     new BookingFilter(bookingCourseSearch.getText(), bookingTutorSearch.getText(),
                             bookingDate.getValue()));
-            slots.getItems().setAll(snapshot.available());
+            slotBrowser.update(snapshot.available());
             bookings.getItems().setAll(snapshot.bookings());
             message.setText(success);
         } catch (RuntimeException failure) {
-            if (failure instanceof SecurityException) { slots.getItems().clear(); bookings.getItems().clear(); }
+            slotBrowser.update(java.util.List.of());
+            if (failure instanceof SecurityException) { bookings.getItems().clear(); }
             showFailure(failure);
         }
     }
@@ -154,7 +123,7 @@ final class StudentWorkspace {
         try {
             action.run();
         } catch (RuntimeException failure) {
-            if (failure instanceof SecurityException) { slots.getItems().clear(); bookings.getItems().clear(); }
+            refresh("");
             showFailure(failure);
             return;
         }
