@@ -1,6 +1,7 @@
 package student;
 
-import data.memory.InMemoryRepositories;
+import data.sqlite.SqliteRepositories;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -24,11 +25,13 @@ import model.user.Student;
 import model.user.Tutor;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import util.OperationLog;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("ui")
 class StudentUiTest {
+    @TempDir Path directory;
     @Test
     void studentBooksCancelsAndSeesReleasedSlot() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
@@ -37,7 +40,7 @@ class StudentUiTest {
         FutureTask<Void> scenario = new FutureTask<>(() -> {
             Stage stage = new Stage();
             try {
-                var data = InMemoryRepositories.create();
+                var data = SqliteRepositories.open(directory.resolve("student-ui.db"));
                 UUID studentId = UUID.randomUUID();
                 UUID tutorId = UUID.randomUUID();
                 UUID moduleId = UUID.randomUUID();

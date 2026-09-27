@@ -1,6 +1,7 @@
 package admin;
 
 import data.repository.Repositories;
+import java.nio.file.Path;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -10,11 +11,16 @@ import model.consultation.*;
 import model.module.Module;
 import model.user.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import util.OperationLog;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AdminServiceTest {
-    private final AdminFixture f = new AdminFixture();
+    @TempDir Path directory;
+    private AdminFixture f;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() { f = new AdminFixture(directory.resolve("admin.db")); }
 
     @Test
     void authorizationIsRecheckedForEveryReadAndMutation() {

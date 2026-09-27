@@ -1,5 +1,7 @@
 package tutor;
 
+import java.nio.file.Path;
+
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
@@ -13,11 +15,13 @@ import javafx.stage.Stage;
 import model.consultation.ConsultationSlot;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @Tag("ui")
 class TutorAccessUiTest {
+    @TempDir Path directory;
     @Test
     void refresh_inactiveTutor_clearsWorkspaceAndShowsMessage() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
@@ -26,7 +30,7 @@ class TutorAccessUiTest {
         FutureTask<Void> scenario = new FutureTask<>(() -> {
             Stage stage = new Stage();
             try {
-                var f = new TutorFixture();
+                var f = new TutorFixture(directory.resolve("tutor-ui.db"));
                 f.service.createSlot(f.module.id(), f.now.plusSeconds(3600), f.now.plusSeconds(5400));
                 Parent root = new TutorWorkspace(f.service, () -> { }).root();
                 stage.setScene(new Scene(root, 950, 620)); stage.show();

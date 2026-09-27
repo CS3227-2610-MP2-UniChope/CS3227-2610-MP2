@@ -1,7 +1,8 @@
 package admin;
 
-import data.memory.InMemoryRepositories;
 import data.repository.Repositories;
+import data.sqlite.SqliteRepositories;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -14,7 +15,7 @@ import model.user.*;
 import util.OperationLog;
 
 final class AdminFixture {
-    final Repositories data = InMemoryRepositories.create();
+    final Repositories data;
     final Clock clock = Clock.fixed(Instant.parse("2026-09-25T00:00:00Z"), ZoneOffset.UTC);
     final List<OperationLog.Event> events = new ArrayList<>();
     final Admin actor = new Admin(UUID.randomUUID(), "Admin", "admin@example.edu", true);
@@ -23,7 +24,8 @@ final class AdminFixture {
     final Module module = new Module(UUID.randomUUID(), "CS3227", "Software Engineering", true);
     final AdminService service;
 
-    AdminFixture() {
+    AdminFixture(Path database) {
+        data = SqliteRepositories.open(database);
         data.users().save(actor); data.users().save(student); data.users().save(tutor);
         data.modules().save(module);
         service = new AdminService(data, actor.id(), clock, new OperationLog(clock, events::add));

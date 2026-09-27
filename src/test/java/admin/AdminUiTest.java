@@ -19,10 +19,13 @@ import model.user.Role;
 import model.user.User;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 @Tag("ui")
 class AdminUiTest {
+    @TempDir Path directory;
+
     @Test
     void adminWorkflowValidationRefreshConfirmationAndRevocation() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
@@ -31,7 +34,7 @@ class AdminUiTest {
         FutureTask<Void> scenario = new FutureTask<>(() -> {
             Stage stage = new Stage();
             try {
-                var f = new AdminFixture();
+                var f = new AdminFixture(directory.resolve("admin-ui.db"));
                 var signedOut = new AtomicBoolean();
                 var accepted = new AtomicBoolean(true);
                 Parent root = new AdminWorkspace(f.service, () -> signedOut.set(true), text -> accepted.get()).root();

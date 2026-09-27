@@ -1,5 +1,7 @@
 package tutor;
 
+import java.nio.file.Path;
+
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -18,11 +20,13 @@ import model.consultation.SlotStatus;
 import model.user.Student;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 @Tag("ui")
 class TutorBookingUiTest {
+    @TempDir Path directory;
     @Test
     void bookingsTab_activeBooking_completesSelectedBooking() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
@@ -31,7 +35,7 @@ class TutorBookingUiTest {
         FutureTask<Void> scenario = new FutureTask<>(() -> {
             Stage stage = new Stage();
             try {
-                var f = new TutorFixture();
+                var f = new TutorFixture(directory.resolve("tutor-ui.db"));
                 Student student = new Student(UUID.randomUUID(), "Lin", "lin@example.edu", true);
                 f.data.users().save(student);
                 ConsultationSlot slot = f.service.createSlot(f.module.id(),

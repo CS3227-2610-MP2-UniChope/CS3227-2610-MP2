@@ -1,7 +1,8 @@
 package tutor;
 
-import data.memory.InMemoryRepositories;
 import data.repository.Repositories;
+import data.sqlite.SqliteRepositories;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -16,13 +17,14 @@ import util.OperationLog;
 final class TutorFixture {
     final Instant now = Instant.parse("2026-09-24T00:00:00Z");
     final Clock clock = Clock.fixed(now, ZoneOffset.UTC);
-    final Repositories data = InMemoryRepositories.create();
+    final Repositories data;
     final Tutor tutor = new Tutor(UUID.randomUUID(), "Ada", "ada@example.edu", true);
     final Module module = new Module(UUID.randomUUID(), "CS3227", "Software Engineering", true);
     final List<OperationLog.Event> events = new ArrayList<>();
     final TutorService service;
 
-    TutorFixture() {
+    TutorFixture(Path database) {
+        data = SqliteRepositories.open(database);
         data.users().save(tutor);
         data.modules().save(module);
         data.modules().assign(new TutorModule(tutor.id(), module.id()));

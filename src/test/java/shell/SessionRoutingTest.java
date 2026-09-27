@@ -1,16 +1,20 @@
 package shell;
 
-import data.memory.InMemoryRepositories;
+import data.sqlite.SqliteRepositories;
+import java.nio.file.Path;
 import java.util.Map;
 import java.util.UUID;
 import model.user.Role;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class SessionRoutingTest {
+    @TempDir Path directory;
+
     @Test
     void everyDemoUserRoutesToTheirOwnViewAndLogoutClearsSession() {
-        var repositories = InMemoryRepositories.create();
+        var repositories = SqliteRepositories.open(directory.resolve("routing.db"));
         DemoData.seed(repositories);
         var session = new Session(repositories.users());
         RoleView student = (user, data, out) -> null;
@@ -28,7 +32,7 @@ class SessionRoutingTest {
 
     @Test
     void inactiveOrMissingUsersCannotSignInAndFailedLoginClearsSession() {
-        var repositories = InMemoryRepositories.create();
+        var repositories = SqliteRepositories.open(directory.resolve("routing.db"));
         DemoData.seed(repositories);
         var user = repositories.users().findAll().getFirst();
         var session = new Session(repositories.users());

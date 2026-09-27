@@ -1,7 +1,8 @@
 package student;
 
-import data.memory.InMemoryRepositories;
 import data.repository.Repositories;
+import data.sqlite.SqliteRepositories;
+import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -17,17 +18,25 @@ import model.module.TutorModule;
 import model.user.Student;
 import model.user.Tutor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import util.OperationLog;
 import static org.junit.jupiter.api.Assertions.*;
 
 class StudentServiceTest {
-    private final Repositories data = InMemoryRepositories.create();
+    @TempDir Path directory;
+    private Repositories data;
     private final Instant now = Instant.parse("2026-09-26T02:00:00Z");
     private final Clock clock = Clock.fixed(now, ZoneOffset.UTC);
     private final UUID studentId = UUID.randomUUID();
     private final UUID tutorId = UUID.randomUUID();
     private final UUID moduleId = UUID.randomUUID();
-    private final StudentService student = service(studentId);
+    private StudentService student;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        data = SqliteRepositories.open(directory.resolve("student.db"));
+        student = service(studentId);
+    }
 
     private StudentService service(UUID id) {
         return new StudentService(data, id, clock, new OperationLog(clock, event -> { }));

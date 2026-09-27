@@ -43,5 +43,6 @@ tasks.register('uiTest', Test) {
     // JavaFX cannot restart after Platform.exit(); isolate each UI test class.
     forkEvery = 1
     jvmArgs '--enable-native-access=ALL-UNNAMED'
+    jvmArgs "-Djava.io.tmpdir=${temporaryDir.absolutePath}"
     shouldRunAfter test
 }
