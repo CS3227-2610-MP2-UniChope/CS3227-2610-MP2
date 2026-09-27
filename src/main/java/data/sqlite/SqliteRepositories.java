@@ -15,6 +15,6 @@ public final class SqliteRepositories {
         SqliteSlotRepository slots = new SqliteSlotRepository(coordinator);
         SqliteBookingRepository bookings = new SqliteBookingRepository(coordinator);
         return new Repositories(users, modules, slots, bookings,
-                new SqliteConsultationLifecycle(coordinator, slots, bookings));
+                new SqliteConsultationLifecycle(coordinator, users, modules, slots, bookings));
     }
 }
