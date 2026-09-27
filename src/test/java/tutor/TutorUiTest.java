@@ -60,7 +60,7 @@ class TutorUiTest {
                 assertEquals("24/09/2026 10:00", startColumn.getCellObservableValue(0).getValue());
                 ((DatePicker) root.lookup("#slot-date")).setValue(LocalDate.of(2026, 9, 25));
                 assertEquals(0, slots.getItems().size());
-                ((DatePicker) root.lookup("#slot-date")).setValue(LocalDate.of(2026, 9, 24));
+                ((Button) root.lookup("#show-all-upcoming")).fire();
                 assertEquals(1, slots.getItems().size());
                 slots.getSelectionModel().selectFirst();
                 ((Button) root.lookup("#cancel-slot")).fire();

@@ -29,7 +29,7 @@ final class TutorWorkspace {
     private final TutorService service;
     private final BorderPane root = new BorderPane();
     private final Label message = new Label();
-    private final DatePicker date = new DatePicker(LocalDate.now(SINGAPORE));
+    private final DatePicker date = new DatePicker();
     private final ComboBox<Module> modules = new ComboBox<>();
     private final TextField start = field("Start (HH:mm)", "slot-start");
     private final TextField end = field("End (HH:mm)", "slot-end");
@@ -43,6 +43,7 @@ final class TutorWorkspace {
     private final TableView<ConsultationSlot> historySlots = table("history-slot-table");
     private final TableView<TutorBookingView> historyBookings = table("history-booking-table");
     private final TextArea note = new TextArea();
+    private boolean showAllHistory;
 
     TutorWorkspace(TutorService service, Runnable signOut) {
         this.service = service;
@@ -66,8 +67,14 @@ final class TutorWorkspace {
         column(slots, "End (SGT)", slot -> displayTime(slot.endTime()));
         column(slots, "Status", slot -> slot.status().toString());
         date.setId("slot-date");
-        date.valueProperty().addListener((observable, oldDate, newDate) -> {
-            if (newDate != null) { refresh(""); }
+        date.setPromptText("Filter date");
+        date.valueProperty().addListener((observable, oldDate, newDate) -> refresh(""));
+        Button showAllUpcoming = button("Show all upcoming", "show-all-upcoming", () -> {
+            if (date.getValue() == null) {
+                refresh("");
+            } else {
+                date.setValue(null);
+            }
         });
         modules.setId("slot-module");
         modules.setPromptText("Active assigned module");
@@ -85,7 +92,7 @@ final class TutorWorkspace {
         AppUi.danger(cancel);
         return new Tab("Slots", AppUi.section("Make time for your students", "Choose a date and course to offer a consultation. Times shown in SGT.",
                 AppUi.filters(AppUi.field("Date · SGT", date), AppUi.field("Assigned course", modules),
-                        AppUi.field("Starts · HH:mm", start), AppUi.field("Ends · HH:mm", end)), slots, create, cancel));
+                        AppUi.field("Starts · HH:mm", start), AppUi.field("Ends · HH:mm", end), showAllUpcoming), slots, create, cancel));
     }
 
     private Tab bookingsTab() {
@@ -123,7 +130,15 @@ final class TutorWorkspace {
         historyStatus.setValue(SlotStatus.COMPLETED);
         note.setId("note-content");
         note.setPromptText("Consultation note");
-        Button filter = button("Filter history", "filter-history", () -> refresh("Filtered"));
+        Button filter = button("Filter history", "filter-history", () -> {
+            showAllHistory = false;
+            refresh("Filtered");
+        });
+        Button showAll = button("Show all history", "show-all-history", () -> {
+            historyDate.setValue(null);
+            showAllHistory = true;
+            refresh("Showing all history");
+        });
         Button load = button("Load note", "load-note", () -> act(() -> note.setText(service.findNote(
                 selected(historyBookings).bookingId()).map(value -> value.content()).orElse(""))));
         Button save = button("Save note", "save-note", () -> act(() ->
@@ -150,7 +165,7 @@ final class TutorWorkspace {
         HBox.setHgrow(notes, Priority.ALWAYS);
         HBox columns = new HBox(24, slotHistory, notes);
         VBox content = new VBox(16, AppUi.label("Keep the conversation moving", "section-title"),
-                AppUi.filters(AppUi.field("Date · SGT", historyDate), AppUi.field("Slot status", historyStatus), filter), columns);
+                AppUi.filters(AppUi.field("Date · SGT", historyDate), AppUi.field("Slot status", historyStatus), filter, showAll), columns);
         content.getStyleClass().add("content-section");
         VBox.setVgrow(columns, Priority.ALWAYS);
         VBox.setVgrow(historySlots, Priority.ALWAYS);
@@ -176,11 +191,15 @@ final class TutorWorkspace {
             modules.getItems().setAll(service.findActiveAssignedModules());
             modules.getItems().sort(Comparator.comparing(Module::code));
             bookingModules.getItems().setAll(modules.getItems());
-            slots.getItems().setAll(service.findUpcomingSlotViews(date.getValue()));
+            slots.getItems().setAll(date.getValue() == null
+                    ? service.findUpcomingSlotViews()
+                    : service.findUpcomingSlotViews(date.getValue()));
             bookings.getItems().setAll(service.findBookingViews(new BookingFilter(
                     bookingModules.getValue() == null ? null : bookingModules.getValue().id(),
                     bookingDate.getValue(), bookingStatus.getValue())));
-            historySlots.getItems().setAll(service.findSlotHistory(historyDate.getValue(), historyStatus.getValue()));
+            historySlots.getItems().setAll(showAllHistory
+                    ? service.findSlotHistory(historyStatus.getValue())
+                    : service.findSlotHistory(historyDate.getValue(), historyStatus.getValue()));
             historyBookings.getItems().setAll(service.findBookingViews(new BookingFilter(null, null, BookingStatus.COMPLETED)));
             message.setText(success);
         } catch (RuntimeException failure) {

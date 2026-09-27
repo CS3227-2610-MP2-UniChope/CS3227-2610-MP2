@@ -73,23 +73,26 @@ public final class TutorService {
         });
     }
 
+    public List<TutorSlotView> findUpcomingSlotViews() {
+        return execute("tutor.slot.view", null, () -> {
+            Tutor tutor = requireActiveTutor();
+            return findUpcomingSlots(tutor, null).stream()
+                    .map(this::toSlotView)
+                    .toList();
+        });
+    }
+
     public List<ConsultationSlot> findSlotHistory(LocalDate date, SlotStatus status) {
         LocalDate selectedDate = Objects.requireNonNull(date, "date");
         SlotStatus selectedStatus = Objects.requireNonNull(status, "status");
-        return execute("tutor.slot.history", null, () -> {
-            Tutor tutor = requireTutor();
-            if (selectedStatus != SlotStatus.CANCELLED && selectedStatus != SlotStatus.COMPLETED) {
-                throw new IllegalArgumentException("Slot history must be cancelled or completed");
-            }
-            if (!tutor.isActive() && selectedStatus != SlotStatus.COMPLETED) {
-                throw new SecurityException("An inactive tutor may only view completed slot history");
-            }
-            return data.slots().findByTutorId(tutor.id()).stream()
-                    .filter(slot -> slot.status() == selectedStatus)
-                    .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(selectedDate))
-                    .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
-                    .toList();
-        });
+        return execute("tutor.slot.history", null,
+                () -> findSlotHistory(requireTutor(), selectedStatus, selectedDate));
+    }
+
+    public List<ConsultationSlot> findSlotHistory(SlotStatus status) {
+        SlotStatus selectedStatus = Objects.requireNonNull(status, "status");
+        return execute("tutor.slot.history", null,
+                () -> findSlotHistory(requireTutor(), selectedStatus, null));
     }
 
     public List<Module> findActiveAssignedModules() {
@@ -217,7 +220,21 @@ public final class TutorService {
         return data.slots().findByTutorId(tutor.id()).stream()
                 .filter(slot -> !slot.startTime().isBefore(clock.instant()))
                 .filter(slot -> slot.status() == SlotStatus.AVAILABLE || slot.status() == SlotStatus.BOOKED)
-                .filter(slot -> slot.startTime().atZone(SINGAPORE).toLocalDate().equals(date))
+                .filter(slot -> date == null || slot.startTime().atZone(SINGAPORE).toLocalDate().equals(date))
+                .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
+                .toList();
+    }
+
+    private List<ConsultationSlot> findSlotHistory(Tutor tutor, SlotStatus status, LocalDate date) {
+        if (status != SlotStatus.CANCELLED && status != SlotStatus.COMPLETED) {
+            throw new IllegalArgumentException("Slot history must be cancelled or completed");
+        }
+        if (!tutor.isActive() && status != SlotStatus.COMPLETED) {
+            throw new SecurityException("An inactive tutor may only view completed slot history");
+        }
+        return data.slots().findByTutorId(tutor.id()).stream()
+                .filter(slot -> slot.status() == status)
+                .filter(slot -> date == null || slot.startTime().atZone(SINGAPORE).toLocalDate().equals(date))
                 .sorted(Comparator.comparing(ConsultationSlot::startTime).thenComparing(ConsultationSlot::id))
                 .toList();
     }
