@@ -574,6 +574,20 @@ class TutorServiceTest {
     }
 
     @Test
+    void findSlotHistory_cancelledStatusWithoutDate_returnsCancelledSlotsSortedByStartTime() {
+        var f = new TutorFixture(directory.resolve("tutor.db"));
+        ConsultationSlot later = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(7200), f.now.plusSeconds(9000));
+        ConsultationSlot earlier = f.service.createSlot(f.module.id(),
+                f.now.plusSeconds(3600), f.now.plusSeconds(5400));
+        f.service.cancelSlot(later.id());
+        f.data.slots().save(earlier.withStatus(SlotStatus.COMPLETED));
+
+        assertEquals(List.of(later.withStatus(SlotStatus.CANCELLED)),
+                f.service.findSlotHistory(SlotStatus.CANCELLED));
+    }
+
+    @Test
     void findSlotHistory_availableStatus_rejectsRequest() {
         var f = new TutorFixture(directory.resolve("tutor.db"));
 

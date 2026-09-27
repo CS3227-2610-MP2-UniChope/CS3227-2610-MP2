@@ -43,6 +43,7 @@ final class TutorWorkspace {
     private final TableView<ConsultationSlot> historySlots = table("history-slot-table");
     private final TableView<TutorBookingView> historyBookings = table("history-booking-table");
     private final TextArea note = new TextArea();
+    private boolean showAllHistory;
 
     TutorWorkspace(TutorService service, Runnable signOut) {
         this.service = service;
@@ -129,7 +130,15 @@ final class TutorWorkspace {
         historyStatus.setValue(SlotStatus.COMPLETED);
         note.setId("note-content");
         note.setPromptText("Consultation note");
-        Button filter = button("Filter history", "filter-history", () -> refresh("Filtered"));
+        Button filter = button("Filter history", "filter-history", () -> {
+            showAllHistory = false;
+            refresh("Filtered");
+        });
+        Button showAll = button("Show all history", "show-all-history", () -> {
+            historyDate.setValue(null);
+            showAllHistory = true;
+            refresh("Showing all history");
+        });
         Button load = button("Load note", "load-note", () -> act(() -> note.setText(service.findNote(
                 selected(historyBookings).bookingId()).map(value -> value.content()).orElse(""))));
         Button save = button("Save note", "save-note", () -> act(() ->
@@ -156,7 +165,7 @@ final class TutorWorkspace {
         HBox.setHgrow(notes, Priority.ALWAYS);
         HBox columns = new HBox(24, slotHistory, notes);
         VBox content = new VBox(16, AppUi.label("Keep the conversation moving", "section-title"),
-                AppUi.filters(AppUi.field("Date · SGT", historyDate), AppUi.field("Slot status", historyStatus), filter), columns);
+                AppUi.filters(AppUi.field("Date · SGT", historyDate), AppUi.field("Slot status", historyStatus), filter, showAll), columns);
         content.getStyleClass().add("content-section");
         VBox.setVgrow(columns, Priority.ALWAYS);
         VBox.setVgrow(historySlots, Priority.ALWAYS);
@@ -188,7 +197,9 @@ final class TutorWorkspace {
             bookings.getItems().setAll(service.findBookingViews(new BookingFilter(
                     bookingModules.getValue() == null ? null : bookingModules.getValue().id(),
                     bookingDate.getValue(), bookingStatus.getValue())));
-            historySlots.getItems().setAll(service.findSlotHistory(historyDate.getValue(), historyStatus.getValue()));
+            historySlots.getItems().setAll(showAllHistory
+                    ? service.findSlotHistory(historyStatus.getValue())
+                    : service.findSlotHistory(historyDate.getValue(), historyStatus.getValue()));
             historyBookings.getItems().setAll(service.findBookingViews(new BookingFilter(null, null, BookingStatus.COMPLETED)));
             message.setText(success);
         } catch (RuntimeException failure) {
