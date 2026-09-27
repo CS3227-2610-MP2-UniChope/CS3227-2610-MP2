@@ -35,6 +35,9 @@ final class StudentWorkspace {
     private final TextField tutorSearch = new TextField();
     private final DatePicker slotDate = new DatePicker();
     private final TableView<StudentService.BookingRow> bookings = table("student-bookings");
+    private final TextField bookingCourseSearch = new TextField();
+    private final TextField bookingTutorSearch = new TextField();
+    private final DatePicker bookingDate = new DatePicker();
     private final Label message = new Label();
 
     StudentWorkspace(StudentService service, Runnable signOut, Predicate<String> confirm) {
@@ -95,7 +98,24 @@ final class StudentWorkspace {
         column(bookings, "End (SGT)", b -> b.end() == null ? "Unavailable" : TIME.format(b.end()));
         column(bookings, "Status", b -> b.status().toString());
         Button cancel = button("Cancel selected", "student-cancel", this::cancelSelected);
-        return tab("My bookings", bookings, cancel);
+        bookingCourseSearch.setId("student-booking-course");
+        bookingCourseSearch.setPromptText("Course code or name");
+        bookingTutorSearch.setId("student-booking-tutor");
+        bookingTutorSearch.setPromptText("Tutor name");
+        bookingDate.setId("student-booking-date");
+        bookingDate.setPromptText("Date (SGT)");
+        Button search = button("Search", "student-booking-search", () -> refresh("Filtered"));
+        Button clear = button("Clear", "student-booking-clear", () -> {
+            bookingCourseSearch.clear();
+            bookingTutorSearch.clear();
+            bookingDate.setValue(null);
+            refresh("Filters cleared");
+        });
+        VBox layout = new VBox(10, new FlowPane(8, 8, bookingCourseSearch, bookingTutorSearch,
+                bookingDate, search, clear), cancel, bookings);
+        layout.setPadding(new Insets(10, 0, 0, 0));
+        VBox.setVgrow(bookings, Priority.ALWAYS);
+        return new Tab("My bookings", layout);
     }
 
     private void cancelSelected() {
@@ -117,8 +137,10 @@ final class StudentWorkspace {
 
     private void refresh(String success) {
         try {
-            StudentService.Snapshot snapshot = service.load(new SlotFilter(
-                    moduleSearch.getText(), tutorSearch.getText(), slotDate.getValue()));
+            StudentService.Snapshot snapshot = service.load(
+                    new SlotFilter(moduleSearch.getText(), tutorSearch.getText(), slotDate.getValue()),
+                    new BookingFilter(bookingCourseSearch.getText(), bookingTutorSearch.getText(),
+                            bookingDate.getValue()));
             slots.getItems().setAll(snapshot.available());
             bookings.getItems().setAll(snapshot.bookings());
             message.setText(success);
@@ -163,13 +185,6 @@ final class StudentWorkspace {
         column.setCellValueFactory(cell -> new ReadOnlyStringWrapper(value.apply(cell.getValue())));
         column.setPrefWidth(170);
         table.getColumns().add(column);
-    }
-
-    private static Tab tab(String heading, TableView<?> table, Button action) {
-        VBox layout = new VBox(10, action, table);
-        layout.setPadding(new Insets(10, 0, 0, 0));
-        VBox.setVgrow(table, Priority.ALWAYS);
-        return new Tab(heading, layout);
     }
 
     private static Button button(String heading, String id, Runnable action) {

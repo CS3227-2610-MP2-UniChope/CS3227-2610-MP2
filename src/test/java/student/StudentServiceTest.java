@@ -103,6 +103,37 @@ class StudentServiceTest {
     }
 
     @Test
+    void filtersBookingHistoryByCourseTutorAndSingaporeDateIndependentlyOfSlots() {
+        setup();
+        var first = slot(3600);
+        UUID otherTutorId = UUID.randomUUID();
+        UUID otherModuleId = UUID.randomUUID();
+        data.users().save(new Tutor(otherTutorId, "Alice Tan", "alice@example.edu", true));
+        data.modules().save(new Module(otherModuleId, "CS2", "Data Structures", true));
+        data.modules().assign(new TutorModule(otherTutorId, otherModuleId));
+        var nextDay = data.slots().save(new ConsultationSlot(UUID.randomUUID(), otherTutorId, otherModuleId,
+                now.plusSeconds(14 * 3600), now.plusSeconds(14 * 3600 + 1800), SlotStatus.AVAILABLE));
+        var cancelled = student.book(first.id());
+        student.cancel(cancelled.id());
+        var active = student.book(nextDay.id());
+        data.modules().save(data.modules().findById(otherModuleId).orElseThrow().withActive(false));
+
+        var snapshot = student.load(new SlotFilter("CS1", null, null),
+                new BookingFilter(" data ", " ALICE ", LocalDate.of(2026, 9, 27)));
+        assertEquals(first.id(), snapshot.available().getFirst().id());
+        assertEquals(1, snapshot.bookings().size());
+        assertEquals(active.id(), snapshot.bookings().getFirst().id());
+        assertEquals(BookingStatus.ACTIVE, snapshot.bookings().getFirst().status());
+        assertEquals(cancelled.id(), student.load(new SlotFilter(null, null, null),
+                new BookingFilter("cs1", "tut", LocalDate.of(2026, 9, 26)))
+                .bookings().getFirst().id());
+        assertEquals(BookingStatus.CANCELLED, student.load().bookings().getFirst().status());
+        assertTrue(student.load(new SlotFilter(null, null, null),
+                new BookingFilter("CS2", null, LocalDate.of(2026, 9, 26))).bookings().isEmpty());
+        assertEquals(2, student.load().bookings().size());
+    }
+
+    @Test
     void rejectsOverlapsOwnershipAndInactiveStudents() {
         setup();
         var first = slot(3600);

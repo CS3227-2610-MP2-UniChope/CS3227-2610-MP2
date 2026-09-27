@@ -7,6 +7,7 @@ import java.time.ZoneId;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import model.consultation.Booking;
@@ -40,11 +41,16 @@ public final class StudentService {
     }
 
     public Snapshot load() {
-        return load(new SlotFilter(null, null, null));
+        return load(new SlotFilter(null, null, null), new BookingFilter(null, null, null));
     }
 
     public Snapshot load(SlotFilter filter) {
-        Objects.requireNonNull(filter, "filter");
+        return load(filter, new BookingFilter(null, null, null));
+    }
+
+    public Snapshot load(SlotFilter slotFilter, BookingFilter bookingFilter) {
+        Objects.requireNonNull(slotFilter, "slotFilter");
+        Objects.requireNonNull(bookingFilter, "bookingFilter");
         return data.lifecycle().withExclusiveAccess(() -> {
             requireStudent();
             Instant now = clock.instant();
@@ -59,18 +65,20 @@ public final class StudentService {
                             && s.startTime().isAfter(now) && !activeSlotIds.contains(s.id()))
                     .filter(s -> activeTutor(users.get(s.tutorId())) && activeModule(modules.get(s.moduleId()))
                             && assigned.contains(new TutorModule(s.tutorId(), s.moduleId())))
-                    .filter(s -> matches(s, modules.get(s.moduleId()), users.get(s.tutorId()), filter))
+                    .filter(s -> matches(s, modules.get(s.moduleId()), users.get(s.tutorId()), slotFilter))
                     .map(s -> new SlotRow(s.id(), modules.get(s.moduleId()).code(),
                             users.get(s.tutorId()).name(), s.startTime(), s.endTime()))
                     .sorted(Comparator.comparing(SlotRow::start).thenComparing(SlotRow::id)).toList();
-            List<BookingRow> bookings = data.bookings().findByStudentId(studentId).stream().map(b -> {
-                ConsultationSlot slot = slotById.get(b.slotId());
-                Module module = slot == null ? null : modules.get(slot.moduleId());
-                User tutor = slot == null ? null : users.get(slot.tutorId());
-                return new BookingRow(b.id(), module == null ? "Unavailable" : module.code(),
-                        tutor == null ? "Unavailable" : tutor.name(),
-                        slot == null ? null : slot.startTime(), slot == null ? null : slot.endTime(), b.status());
-            }).sorted(Comparator.comparing(BookingRow::start, Comparator.nullsLast(Comparator.naturalOrder()))
+            List<BookingRow> bookings = data.bookings().findByStudentId(studentId).stream()
+                    .filter(b -> matchesBooking(slotById.get(b.slotId()), modules, users, bookingFilter))
+                    .map(b -> {
+                        ConsultationSlot slot = slotById.get(b.slotId());
+                        Module module = slot == null ? null : modules.get(slot.moduleId());
+                        User tutor = slot == null ? null : users.get(slot.tutorId());
+                        return new BookingRow(b.id(), module == null ? "Unavailable" : module.code(),
+                                tutor == null ? "Unavailable" : tutor.name(),
+                                slot == null ? null : slot.startTime(), slot == null ? null : slot.endTime(), b.status());
+                    }).sorted(Comparator.comparing(BookingRow::start, Comparator.nullsLast(Comparator.naturalOrder()))
                     .thenComparing(BookingRow::id)).toList();
             return new Snapshot(available, bookings);
         });
@@ -116,6 +124,17 @@ public final class StudentService {
                 && contains(tutor.name(), filter.tutor())
                 && (filter.date() == null
                         || slot.startTime().atZone(SINGAPORE).toLocalDate().equals(filter.date()));
+    }
+
+    private static boolean matchesBooking(ConsultationSlot slot, Map<UUID, Module> modules,
+                                          Map<UUID, User> users, BookingFilter filter) {
+        Module module = slot == null ? null : modules.get(slot.moduleId());
+        User tutor = slot == null ? null : users.get(slot.tutorId());
+        return (filter.course().isEmpty() || (module != null
+                && (contains(module.code(), filter.course()) || contains(module.name(), filter.course()))))
+                && (filter.tutor().isEmpty() || (tutor != null && contains(tutor.name(), filter.tutor())))
+                && (filter.date() == null || (slot != null
+                && slot.startTime().atZone(SINGAPORE).toLocalDate().equals(filter.date())));
     }
 
     private static boolean contains(String value, String query) {
