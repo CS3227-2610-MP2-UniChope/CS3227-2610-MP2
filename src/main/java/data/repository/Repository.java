@@ -9,7 +9,7 @@ import java.util.UUID;
  * values and unmodifiable snapshots. Missing IDs return Optional.empty().
  * Repositories are not authorization or business-service boundaries. Cross-repository
  * validation and atomic booking/slot transitions belong in the application service
- * and transaction layer, which must be added before implementing booking workflows.
+ * and consultation lifecycle transaction layer.
  * There is intentionally no hard-delete operation for historical entities.
  */
 public interface Repository<T> {

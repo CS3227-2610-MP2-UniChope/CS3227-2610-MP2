@@ -1,5 +1,6 @@
 package tutor;
 
+import java.nio.file.Path;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
@@ -16,14 +17,17 @@ import model.module.Module;
 import model.user.Student;
 import model.user.Tutor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class TutorServiceTest {
+    @TempDir Path directory;
+
     @Test
     void createSlot_activeAssignedTutor_createsAvailableSlot() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
 
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
@@ -34,14 +38,14 @@ class TutorServiceTest {
 
     @Test
     void createSlot_missingTutor_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         assertThrows(SecurityException.class, () -> f.service(UUID.randomUUID()).createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400)));
     }
 
     @Test
     void createSlot_inactiveTutor_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         f.data.users().save(f.tutor.withActive(false));
 
         assertThrows(SecurityException.class, () -> f.service.createSlot(f.module.id(),
@@ -50,7 +54,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_inactiveModule_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         f.data.modules().save(f.module.withActive(false));
 
         assertThrows(IllegalArgumentException.class, () -> f.service.createSlot(f.module.id(),
@@ -59,7 +63,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_unassignedTutor_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         f.data.modules().unassign(new TutorModule(f.tutor.id(), f.module.id()));
 
         assertThrows(IllegalArgumentException.class, () -> f.service.createSlot(f.module.id(),
@@ -68,7 +72,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_pastStartTime_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
 
         assertThrows(IllegalArgumentException.class, () -> f.service.createSlot(f.module.id(),
                 f.now.minusSeconds(1), f.now.plusSeconds(1800)));
@@ -76,7 +80,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_overlappingAvailableSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         f.service.createSlot(f.module.id(), f.now.plusSeconds(3600), f.now.plusSeconds(5400));
 
         assertThrows(IllegalArgumentException.class, () -> f.service.createSlot(f.module.id(),
@@ -85,7 +89,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_overlappingBookedSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot existing = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(existing.withStatus(SlotStatus.BOOKED));
@@ -96,7 +100,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_adjacentSlot_createsAvailableSlot() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         f.service.createSlot(f.module.id(), f.now.plusSeconds(3600), f.now.plusSeconds(5400));
 
         ConsultationSlot adjacent = f.service.createSlot(f.module.id(),
@@ -107,7 +111,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_overlappingCancelledSlot_createsAvailableSlot() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot existing = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(existing.withStatus(SlotStatus.CANCELLED));
@@ -120,7 +124,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_overlappingCompletedSlot_createsAvailableSlot() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot existing = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(existing.withStatus(SlotStatus.COMPLETED));
@@ -133,7 +137,7 @@ class TutorServiceTest {
 
     @Test
     void createSlot_concurrentOverlap_acceptsOnlyOneRequest() throws Exception {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Callable<Boolean> attempt = () -> {
             try {
                 f.service.createSlot(f.module.id(), f.now.plusSeconds(3600), f.now.plusSeconds(5400));
@@ -155,7 +159,7 @@ class TutorServiceTest {
 
     @Test
     void cancelSlot_ownedAvailableSlot_marksSlotCancelled() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
 
@@ -167,7 +171,7 @@ class TutorServiceTest {
 
     @Test
     void cancelSlot_otherTutorsSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Tutor otherTutor = new Tutor(UUID.randomUUID(), "Grace", "grace@example.edu", true);
         f.data.users().save(otherTutor);
         f.data.modules().assign(new TutorModule(otherTutor.id(), f.module.id()));
@@ -179,7 +183,7 @@ class TutorServiceTest {
 
     @Test
     void cancelSlot_bookedSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -189,7 +193,7 @@ class TutorServiceTest {
 
     @Test
     void cancelSlot_completedSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.COMPLETED));
@@ -199,14 +203,14 @@ class TutorServiceTest {
 
     @Test
     void cancelSlot_missingSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
 
         assertThrows(IllegalArgumentException.class, () -> f.service.cancelSlot(UUID.randomUUID()));
     }
 
     @Test
     void cancelSlot_cancelledSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.CANCELLED));
@@ -216,7 +220,7 @@ class TutorServiceTest {
 
     @Test
     void findUpcomingSlots_matchingSingaporeDate_returnsSortedAvailableAndBookedSlots() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot later = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(7200), f.now.plusSeconds(9000));
         ConsultationSlot earlier = f.service.createSlot(f.module.id(),
@@ -233,7 +237,7 @@ class TutorServiceTest {
 
     @Test
     void findUpcomingSlots_slotAfterUtcMidnightBoundary_matchesSingaporeDate() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Instant start = Instant.parse("2026-09-24T16:30:00Z");
         ConsultationSlot slot = f.service.createSlot(f.module.id(), start, start.plusSeconds(1800));
 
@@ -244,7 +248,7 @@ class TutorServiceTest {
 
     @Test
     void findUpcomingSlots_pastAvailableSlot_excludesSlot() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot past = new ConsultationSlot(UUID.randomUUID(), f.tutor.id(), f.module.id(),
                 f.now.minusSeconds(3600), f.now.minusSeconds(1800), SlotStatus.AVAILABLE);
         f.data.slots().save(past);
@@ -256,7 +260,7 @@ class TutorServiceTest {
 
     @Test
     void findUpcomingSlotViews_activeTutor_returnsModuleCode() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
 
@@ -267,7 +271,7 @@ class TutorServiceTest {
 
     @Test
     void findBookings_matchingStatus_returnsOnlyTutorsBookings() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -284,7 +288,7 @@ class TutorServiceTest {
 
     @Test
     void findBookings_matchingModule_returnsOnlyMatchingBookings() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot firstSlot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(firstSlot.withStatus(SlotStatus.BOOKED));
@@ -306,7 +310,7 @@ class TutorServiceTest {
 
     @Test
     void findBookings_matchingSingaporeDate_returnsOnlyBookingsForThatDate() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot firstSlot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(firstSlot.withStatus(SlotStatus.BOOKED));
@@ -327,7 +331,7 @@ class TutorServiceTest {
 
     @Test
     void findBookings_unsortedStorage_returnsBookingsBySlotStartTime() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot laterSlot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(7200), f.now.plusSeconds(9000));
         f.data.slots().save(laterSlot.withStatus(SlotStatus.BOOKED));
@@ -346,7 +350,7 @@ class TutorServiceTest {
 
     @Test
     void findBookings_otherTutorsBooking_excludesBooking() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Tutor otherTutor = new Tutor(UUID.randomUUID(), "Grace", "grace@example.edu", true);
         f.data.users().save(otherTutor);
         f.data.modules().assign(new TutorModule(otherTutor.id(), f.module.id()));
@@ -363,7 +367,7 @@ class TutorServiceTest {
 
     @Test
     void findBookings_inactiveTutor_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         f.data.users().save(f.tutor.withActive(false));
 
         assertThrows(SecurityException.class,
@@ -372,7 +376,7 @@ class TutorServiceTest {
 
     @Test
     void completeBooking_ownedActiveBookedPair_completesBookingAndSlot() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -388,7 +392,7 @@ class TutorServiceTest {
 
     @Test
     void completeBooking_otherTutorsBooking_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Tutor otherTutor = new Tutor(UUID.randomUUID(), "Grace", "grace@example.edu", true);
         f.data.users().save(otherTutor);
         f.data.modules().assign(new TutorModule(otherTutor.id(), f.module.id()));
@@ -403,7 +407,7 @@ class TutorServiceTest {
 
     @Test
     void completeBooking_nonActiveBooking_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -416,7 +420,7 @@ class TutorServiceTest {
 
     @Test
     void completeBooking_nonBookedSlot_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         Booking booking = new Booking(UUID.randomUUID(), UUID.randomUUID(), slot.id(), f.now, BookingStatus.ACTIVE);
@@ -427,7 +431,7 @@ class TutorServiceTest {
 
     @Test
     void saveNote_completedOwnedBooking_savesNoteAtCurrentTime() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -443,7 +447,7 @@ class TutorServiceTest {
 
     @Test
     void saveNote_existingNote_replacesContent() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -460,7 +464,7 @@ class TutorServiceTest {
 
     @Test
     void saveNote_otherTutorsBooking_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Tutor otherTutor = new Tutor(UUID.randomUUID(), "Grace", "grace@example.edu", true);
         f.data.users().save(otherTutor);
         f.data.modules().assign(new TutorModule(otherTutor.id(), f.module.id()));
@@ -476,7 +480,7 @@ class TutorServiceTest {
 
     @Test
     void saveNote_nonCompletedBooking_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -488,7 +492,7 @@ class TutorServiceTest {
 
     @Test
     void findNote_completedOwnedBooking_returnsNote() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -502,7 +506,7 @@ class TutorServiceTest {
 
     @Test
     void findNote_inactiveTutorWithCompletedBooking_returnsNoteHistory() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -517,7 +521,7 @@ class TutorServiceTest {
 
     @Test
     void findBookings_inactiveTutorWithCompletedBooking_returnsConsultationHistory() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.BOOKED));
@@ -532,7 +536,7 @@ class TutorServiceTest {
 
     @Test
     void findSlotHistory_cancelledStatus_returnsOwnedSlotsSortedByStartTime() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot later = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(7200), f.now.plusSeconds(9000));
         ConsultationSlot earlier = f.service.createSlot(f.module.id(),
@@ -546,7 +550,7 @@ class TutorServiceTest {
 
     @Test
     void findSlotHistory_completedStatus_returnsOwnedSlots() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.COMPLETED));
@@ -557,7 +561,7 @@ class TutorServiceTest {
 
     @Test
     void findSlotHistory_availableStatus_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
 
         assertThrows(IllegalArgumentException.class,
                 () -> f.service.findSlotHistory(LocalDate.of(2026, 9, 24), SlotStatus.AVAILABLE));
@@ -565,7 +569,7 @@ class TutorServiceTest {
 
     @Test
     void findSlotHistory_inactiveTutorWithCompletedSlots_returnsHistory() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         ConsultationSlot slot = f.service.createSlot(f.module.id(),
                 f.now.plusSeconds(3600), f.now.plusSeconds(5400));
         f.data.slots().save(slot.withStatus(SlotStatus.COMPLETED));
@@ -577,14 +581,14 @@ class TutorServiceTest {
 
     @Test
     void findActiveAssignedModules_activeTutor_returnsAssignedActiveModules() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
 
         assertEquals(List.of(f.module), f.service.findActiveAssignedModules());
     }
 
     @Test
     void findActiveAssignedModules_assignedInactiveModule_excludesModule() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Module inactiveModule = new Module(UUID.randomUUID(), "CS2100", "Computer Organisation", false);
         f.data.modules().save(inactiveModule);
         f.data.modules().assign(new TutorModule(f.tutor.id(), inactiveModule.id()));
@@ -594,7 +598,7 @@ class TutorServiceTest {
 
     @Test
     void findActiveAssignedModules_inactiveTutor_rejectsRequest() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         f.data.users().save(f.tutor.withActive(false));
 
         assertThrows(SecurityException.class, f.service::findActiveAssignedModules);
@@ -602,7 +606,7 @@ class TutorServiceTest {
 
     @Test
     void findBookingViews_ownedActiveBooking_returnsTableReadyRow() {
-        var f = new TutorFixture();
+        var f = new TutorFixture(directory.resolve("tutor.db"));
         Student student = new Student(UUID.randomUUID(), "Lin", "lin@example.edu", true);
         f.data.users().save(student);
         ConsultationSlot slot = f.service.createSlot(f.module.id(),

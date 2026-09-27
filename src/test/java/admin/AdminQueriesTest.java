@@ -1,14 +1,18 @@
 package admin;
 
+import java.nio.file.Path;
 import java.util.UUID;
 import model.consultation.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
 class AdminQueriesTest {
+    @TempDir Path directory;
+
     @Test
     void mixedStatusesAndRebookingsUseAllRecordsAsDenominator() {
-        var f = new AdminFixture();
+        var f = new AdminFixture(directory.resolve("admin-queries.db"));
         var slot = f.slot(f.clock.instant(), SlotStatus.COMPLETED);
         f.booking(slot, BookingStatus.CANCELLED);
         f.booking(slot, BookingStatus.COMPLETED);
@@ -23,7 +27,7 @@ class AdminQueriesTest {
 
     @Test
     void emptyAndAllCompletedOrCancelledStatisticsAreDefined() {
-        var f = new AdminFixture();
+        var f = new AdminFixture(directory.resolve("admin-queries.db"));
         assertEquals(0, AdminQueries.statistics(f.service.load()).completionRate());
         assertEquals(0, AdminQueries.statistics(f.service.load()).cancellationRate());
         var slot = f.slot(f.clock.instant(), SlotStatus.COMPLETED);
@@ -35,7 +39,7 @@ class AdminQueriesTest {
 
     @Test
     void inactiveEntitiesRemainVisibleAndMissingReferencesAreNotDropped() {
-        var f = new AdminFixture();
+        var f = new AdminFixture(directory.resolve("admin-queries.db"));
         var slot = f.slot(f.clock.instant().minusSeconds(3600), SlotStatus.COMPLETED);
         f.booking(slot, BookingStatus.COMPLETED);
         f.data.users().save(f.tutor.withActive(false));
@@ -55,7 +59,7 @@ class AdminQueriesTest {
 
     @Test
     void aUserNamedUnavailableIsNotMistakenForAMissingReference() {
-        var f = new AdminFixture();
+        var f = new AdminFixture(directory.resolve("admin-queries.db"));
         f.data.users().save(new model.user.Tutor(f.tutor.id(), "Unavailable", f.tutor.email(), true));
         f.booking(f.slot(f.clock.instant(), SlotStatus.COMPLETED), BookingStatus.COMPLETED);
         var stats = AdminQueries.statistics(f.service.load());
@@ -64,7 +68,7 @@ class AdminQueriesTest {
 
     @Test
     void sameNamedTutorsRemainSeparateAndBookingRowsAreChronological() {
-        var f = new AdminFixture();
+        var f = new AdminFixture(directory.resolve("admin-queries.db"));
         var other = new model.user.Tutor(UUID.randomUUID(), f.tutor.name(), "other@example.edu", true);
         f.data.users().save(other);
         f.booking(f.slot(f.clock.instant().plusSeconds(3600), SlotStatus.COMPLETED), BookingStatus.COMPLETED);

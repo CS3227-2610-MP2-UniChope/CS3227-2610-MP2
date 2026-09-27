@@ -1,6 +1,7 @@
-package data.memory;
+package data.sqlite;
 
 import data.repository.Repositories;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
 import model.consultation.Booking;
@@ -8,12 +9,18 @@ import model.consultation.BookingStatus;
 import model.consultation.ConsultationSlot;
 import model.consultation.SlotStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class InMemoryConsultationLifecycleTest {
-    private final Repositories repositories = InMemoryRepositories.create();
+class SqliteConsultationLifecycleContractTest {
+    @TempDir Path directory;
+    private Repositories repositories;
+
+    @BeforeEach
+    void setUp() { repositories = SqliteRepositories.open(directory.resolve("lifecycle.db")); }
 
     @Test
     void completeActiveBooking_activeBookedPair_completesBothRecords() {

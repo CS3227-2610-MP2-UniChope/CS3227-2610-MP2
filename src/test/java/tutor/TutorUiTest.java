@@ -1,5 +1,7 @@
 package tutor;
 
+import java.nio.file.Path;
+
 import java.time.LocalDate;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -18,12 +20,14 @@ import javafx.stage.Stage;
 import model.module.Module;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 @Tag("ui")
 class TutorUiTest {
+    @TempDir Path directory;
     @Test
     void slotsTab_activeTutorCreatesSlotWithModuleCode() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
@@ -32,7 +36,7 @@ class TutorUiTest {
         FutureTask<Void> scenario = new FutureTask<>(() -> {
             Stage stage = new Stage();
             try {
-                var f = new TutorFixture();
+                var f = new TutorFixture(directory.resolve("tutor-ui.db"));
                 Parent root = new TutorWorkspace(f.service, () -> { }).root();
                 stage.setScene(new Scene(root, 950, 620));
                 stage.show();

@@ -1,5 +1,6 @@
 package data.repository;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.function.Supplier;
 import model.consultation.Booking;
@@ -7,6 +8,16 @@ import model.consultation.Booking;
 /** Performs cross-repository consultation state transitions atomically. */
 public interface ConsultationLifecycle {
     Booking completeActiveBooking(UUID tutorId, UUID bookingId);
+
+    /** Atomically creates an active booking and marks its future slot booked. */
+    default Booking bookAvailableSlot(UUID studentId, UUID slotId, Instant now) {
+        throw new UnsupportedOperationException("Booking is not supported by this storage provider");
+    }
+
+    /** Atomically cancels a student's future booking and releases its slot. */
+    default Booking cancelActiveBooking(UUID studentId, UUID bookingId, Instant now) {
+        throw new UnsupportedOperationException("Cancellation is not supported by this storage provider");
+    }
 
     /**
      * Serializes a read/check followed by at most one repository mutation against

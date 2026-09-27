@@ -1,6 +1,7 @@
-package data.memory;
+package data.sqlite;
 
 import data.repository.Repositories;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.Callable;
@@ -12,10 +13,16 @@ import model.module.TutorModule;
 import model.user.Student;
 import model.user.Tutor;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import static org.junit.jupiter.api.Assertions.*;
 
-class InMemoryRepositoriesTest {
-    private final Repositories repositories = InMemoryRepositories.create();
+class SqliteRepositoryContractTest {
+    @TempDir Path directory;
+    private Repositories repositories;
+
+    @BeforeEach
+    void setUp() { repositories = SqliteRepositories.open(directory.resolve("repositories.db")); }
 
     @Test
     void userUpsertAndSnapshotsPreserveIsolation() {
@@ -27,7 +34,7 @@ class InMemoryRepositoriesTest {
         assertFalse(repositories.users().findById(student.id()).orElseThrow().isActive());
         assertTrue(snapshot.getFirst().isActive());
         assertThrows(UnsupportedOperationException.class, snapshot::clear);
-        assertTrue(InMemoryRepositories.create().users().findAll().isEmpty());
+        assertTrue(SqliteRepositories.open(directory.resolve("other.db")).users().findAll().isEmpty());
         assertTrue(repositories.users().findById(UUID.randomUUID()).isEmpty());
     }
 
