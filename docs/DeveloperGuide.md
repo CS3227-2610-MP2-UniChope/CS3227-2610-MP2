@@ -7,10 +7,10 @@ Admins manage users, modules, tutor assignments, and booking statistics. Tutors
 publish consultation slots, review bookings, complete consultations, and keep
 notes. Students find available slots, book them, and manage their bookings.
 
-The application stores its data in a local SQLite database. Sign-in is a **demo
-account selector**, not password authentication. This guide describes the
-current implementation in this repository: its architecture, workflows, role
-components, storage rules, and development checks.
+The application stores its data in a local SQLite database. Users sign in with
+an email and password; the stored account determines their role. This guide
+describes the current implementation in this repository: its architecture,
+workflows, role components, storage rules, and development checks.
 
 ### 1.1 Design goals
 
@@ -67,10 +67,13 @@ and statistics from an `AdminSnapshot`, separate from JavaFX.
 ```mermaid
 flowchart LR
     Shell[Login, session, role router] --> Views[Admin, tutor, student workspaces]
-    Views --> Services[Role services and queries]
+    Shell -->|opens bundle| SQLite[SQLite repository bundle]
+    Shell --> Services[Authentication and role services/queries]
+    Views --> Services
     Services --> Contracts[Repository and lifecycle contracts]
-    Contracts --> SQLite[SQLite repository bundle]
+    SQLite -. implements .-> Contracts
     SQLite --> DB[(data/unichope.db)]
+    Shell --> Log[OperationLog]
     Services --> Log[OperationLog]
 ```
 
@@ -81,7 +84,7 @@ background execution to keep the JavaFX thread responsive.
 
 | Component | Responsibility |
 | --- | --- |
-| Shell | Opens storage, seeds demo records, selects an active account, and routes by role |
+| Shell | Opens storage, seeds missing modules, authenticates users, manages the session, and routes by stored role |
 | Role workspaces | Collect input, display results and errors, and refresh after actions |
 | Role services | Revalidate actor identity and domain rules for each operation |
 | Consultation lifecycle | Guard booking, cancellation, completion, and shared transactions |
@@ -94,15 +97,23 @@ background execution to keep the JavaFX thread responsive.
 
 `shell.Launcher` starts `UniChopeApplication`. The application opens
 `data/unichope.db` relative to the working directory and initializes SQLite
-schema version 1 when needed. `DemoData.seed` creates one account per role only
-when there are no users. It also adds 15 selected active requirements from the
+schema version 2 for a new database. Existing databases with an unsupported
+nonzero schema version are rejected; the application does not upgrade them.
+`DemoData.seed` adds 15 selected active requirements from the
 [NUS CS AY2026/27 curriculum](https://www.comp.nus.edu.sg/cug/per-cohort/cs/cs-26-27/)
-when their codes are missing, while preserving existing edits and deactivations.
-It does not seed assignments, consultation slots, or bookings.
+when their codes are missing, while preserving existing edits and
+deactivations. It does not create user accounts, assignments, consultation
+slots, or bookings.
 
-The login screen lists active accounts. `Session` selects one; `RoleRouter`
-creates the matching workspace. Sign out returns to the account selector.
-This flow does not authenticate a real user.
+If authentication bootstrap is incomplete, the shell shows the one-time
+initial Admin setup. Otherwise, users sign in with email and password.
+`AuthenticationService` validates the credentials and account status against
+SQLite; an account flagged for a required password change must update its
+password before continuing. The shell stores the authenticated identity in
+`Session`, and `RoleRouter` opens the workspace for the role stored on that
+account. Students can register from the sign-in screen; an Admin provisions
+Tutor and additional Admin accounts. Sign out clears the session and returns
+to sign in.
 
 ### 4.2 Publish a slot and book it
 
@@ -151,7 +162,47 @@ completed records. Each rate divides by the total number of bookings, returning
 
 ## 5. Component design
 
-### 5.1 Student
+### 5.1 Authentication
+
+`AuthenticationService` owns credential validation and account lifecycle rules;
+the JavaFX shell collects input and routes the returned `AuthenticatedUser`.
+`AuthenticationRepository` is the credential-storage boundary, implemented
+by SQLite. It alone returns `StoredCredential`; ordinary user lookups do not
+expose password hashes. The user's stored role—not a role selected at sign-in—
+determines which workspace `RoleRouter` opens.
+
+On startup, the shell checks whether initial Admin setup is still required.
+The first Admin is created once and bootstrap completion is recorded in the
+same transaction. Anyone may register as a Student. An authenticated Admin
+creates Tutor and additional Admin accounts with temporary passwords; those
+accounts must change their password at first sign-in. Admin password resets
+also require a change at the next sign-in.
+
+Passwords must contain 8–128 characters. `AuthenticationService` hashes them
+with Argon2id before storage, verifies the encoded hash at login, rejects
+inactive accounts, and clears the supplied character arrays after use. Login
+failures use the same email-or-password error so the UI does not reveal which
+credential check failed. The database and hashing details are covered in
+[Storage and consistency](#55-storage-and-consistency).
+
+```mermaid
+flowchart TD
+    start([Application starts]) --> setup{Initial Admin setup required?}
+    setup -- Yes --> createAdmin[Create initial Admin]
+    createAdmin --> signIn
+    setup -- No --> signIn[Enter email and password]
+    signIn --> verify[AuthenticationService verifies credentials and active status]
+    verify --> valid{Credentials valid?}
+    valid -- No --> retry([Show sign-in error])
+    retry --> signIn
+    valid -- Yes --> change{Password change required?}
+    change -- Yes --> update[Change temporary password]
+    update --> route[Route using stored account role]
+    change -- No --> route
+    route --> workspace([Open Student, Tutor, or Admin workspace])
+```
+
+### 5.2 Student
 
 `StudentService.load(SlotFilter, BookingFilter)` returns available slots and
 the current student's booking history. Available slots must be future,
@@ -167,21 +218,143 @@ and gives overlapping choices separate rows. The selected block's details
 appear beside the booking action. My bookings has independent course, tutor,
 and date filters and an explicit cancellation confirmation.
 
-### 5.2 Tutor
+### 5.3 Tutor
 
-`TutorService` handles slot creation/cancellation, booking views and filters,
-completion, and consultation notes. The Slots tab displays upcoming AVAILABLE
-and BOOKED slots for a selected SGT date. The Bookings tab filters by module,
-date, and status. History & Notes filters CANCELLED or COMPLETED slots by date
-and displays completed bookings for note loading and saving.
+`TutorWorkspace` owns the Slots, Bookings, and History & Notes tabs. It parses
+the tutor's date/time input, constructs filters, displays service results, and
+shows operation feedback. It does not access repositories directly.
+`TutorService` is the Tutor application boundary: it validates the acting
+tutor, applies slot and booking rules, builds table display records, and
+delegates multi-record state changes to `ConsultationLifecycle`. Each service
+operation runs through the shared exclusive-access boundary and records its
+outcome through `OperationLog`.
 
-`TutorSlotView` and `TutorBookingView` provide display data without putting
-formatting or joins in repository records. An inactive tutor cannot create or
-cancel slots, complete bookings, or save notes. Service methods retain limited
-history read rules; the current workspace refreshes all tabs together and
-requires active module access during that refresh.
+```mermaid
+classDiagram
+    class TutorWorkspace {
+        -service: TutorService
+        -slotsTab()
+        -bookingsTab()
+        -historyTab()
+        -refresh(success)
+    }
+    class TutorService {
+        +createSlot(moduleId, start, end)
+        +cancelSlot(slotId)
+        +findUpcomingSlotViews(date)
+        +findBookingViews(filter)
+        +completeBooking(bookingId)
+        +findSlotHistory(date, status)
+        +findNote(bookingId)
+        +saveNote(bookingId, content)
+    }
+    class BookingFilter {
+        +moduleId: UUID
+        +date: LocalDate
+        +status: BookingStatus
+    }
+    class TutorSlotView {
+        +slotId: UUID
+        +moduleCode: String
+        +startTime: Instant
+        +endTime: Instant
+        +status: SlotStatus
+    }
+    class TutorBookingView {
+        +bookingId: UUID
+        +slotId: UUID
+        +studentName: String
+        +moduleCode: String
+        +startTime: Instant
+        +endTime: Instant
+        +status: BookingStatus
+    }
+    class Repositories
+    class UserRepository {
+        <<interface>>
+    }
+    class ModuleRepository {
+        <<interface>>
+    }
+    class SlotRepository {
+        <<interface>>
+    }
+    class BookingRepository {
+        <<interface>>
+    }
+    class ConsultationLifecycle {
+        <<interface>>
+    }
 
-### 5.3 Admin
+    TutorWorkspace --> TutorService : calls
+    TutorWorkspace ..> BookingFilter : builds
+    TutorWorkspace ..> TutorSlotView : displays
+    TutorWorkspace ..> TutorBookingView : displays
+    TutorService ..> BookingFilter : applies
+    TutorService ..> TutorSlotView : returns
+    TutorService ..> TutorBookingView : returns
+    TutorService --> Repositories : uses
+    Repositories --> UserRepository
+    Repositories --> ModuleRepository
+    Repositories --> SlotRepository
+    Repositories --> BookingRepository
+    Repositories --> ConsultationLifecycle
+```
+
+The workspace refreshes its tables from service results. `TutorSlotView` and
+`TutorBookingView` contain only the fields needed by those tables, so the UI
+does not perform joins or format repository entities itself. `BookingFilter`
+keeps the optional module, SGT date, and booking status criteria together.
+
+#### Slot operations
+
+Creating a slot requires an active tutor, an active module assigned to that
+tutor, a start time that is not in the past, an end time after the start, and
+no overlap with another AVAILABLE or BOOKED slot owned by the tutor. The new
+slot starts as `AVAILABLE`. The Slots tab shows upcoming AVAILABLE and BOOKED
+slots, either for a chosen SGT date or across all upcoming dates.
+
+A tutor may cancel only their own AVAILABLE slot. A BOOKED slot cannot be
+cancelled or rescheduled directly: its student must first cancel the future
+ACTIVE booking, which releases the slot. The tutor can then cancel the
+released slot and create a replacement.
+
+#### Bookings, history, and notes
+
+The Bookings tab filters by module, SGT date, and status. `TutorBookingView`
+combines booking data with the slot, module, and student fields used in the
+table. Completing a booking requires an active tutor who owns the slot and a
+consistent `ACTIVE` booking plus `BOOKED` slot. `ConsultationLifecycle`
+atomically changes both records to `COMPLETED`. Completion is not time-gated,
+so it can currently be recorded before the scheduled start time.
+
+The completion activity below shows the checks that must pass before the
+two-record transition is performed:
+
+```mermaid
+flowchart TD
+    start([Tutor selects a booking to complete]) --> active{Tutor is active?}
+    active -- No --> reject([Reject the operation])
+    active -- Yes --> owned{Booking exists and its slot belongs to this tutor?}
+    owned -- No --> reject
+    owned -- Yes --> pair{Booking is ACTIVE and slot is BOOKED?}
+    pair -- No --> reject
+    pair -- Yes --> transition[ConsultationLifecycle completes booking and slot atomically]
+    transition --> done([Show completion result])
+```
+
+History & Notes filters slot history by an optional date and one status at a time:
+`CANCELLED` or `COMPLETED`. Its separate completed-bookings table supports
+loading and saving a note for an owned completed consultation. A note is
+stored against its booking; saving again replaces its content.
+
+Mutations require an active tutor. At the service boundary, inactive tutors
+may read completed booking and slot history and notes, but not active records
+or cancelled history. The current workspace refreshes all tabs together and
+loads active assigned modules as part of that refresh, so losing active-tutor
+access can cause the combined refresh to clear the displayed data.
+
+### 5.4 Admin
 
 `AdminService` performs guarded actions and emits operation events.
 `AdminWorkspace` implements Users, Modules, Assignments, Bookings, and
@@ -189,22 +362,133 @@ Statistics tabs. It refreshes after actions and clears displayed data if the
 admin's access is revoked. `AdminQueries` performs joins and aggregations,
 separate from the service's authorization and validation.
 
-### 5.4 Storage and consistency
+### 5.5 Storage and consistency
 
-`SqliteRepositories.open` constructs repositories sharing one
-`SqliteDatabase`. The database creates its parent directory, opens short-lived
-JDBC connections, and uses a shared lock and transaction connection for
-`withExclusiveAccess`. A runtime failure rolls back the transaction.
-SQLite has a partial unique index allowing at most one ACTIVE booking per slot.
+The running application uses SQLite for accounts, modules, tutor assignments,
+consultation slots, bookings, and notes. `data.repository` defines the storage
+contracts and the `Repositories` bundle; `data.sqlite` implements those
+contracts. The shell composes one bundle with `SqliteRepositories.open(...)`
+and injects it into the role services. Services depend on the contracts, not
+on JDBC or SQLite classes.
 
-The schema uses `PRAGMA user_version = 1`. Opening a database with another
-nonzero schema version fails; there is no migration or corrupt-file recovery
-flow in this version. Repository saves alone do not enforce every cross-entity
-rule, so multi-record actions belong in the lifecycle or a guarded service
-transaction. Tests cover the bundle's behavior; they do not establish
-multi-process concurrency guarantees.
+By default, the application opens `data/unichope.db` relative to its working
+directory. `SqliteDatabase` creates the parent directory if needed. Each
+repository in the bundle shares that database coordinator, so their operations
+can participate in the same transaction. The main tables are:
 
-### 5.5 Time and diagnostics
+| Table | Stored information |
+| --- | --- |
+| `users` | Student, Tutor, and Admin identity, role, active state, encoded password hash, and required-password-change flag |
+| `modules` | Module code, name, and active state |
+| `tutor_modules` | Tutor-to-module assignments, with one row per pair |
+| `consultation_slots` | Tutor, module, start/end instants, and slot status |
+| `bookings` | Student, slot, creation instant, and booking status |
+| `consultation_notes` | Note content and update instant, keyed by booking |
+| `application_metadata` | Initial Admin bootstrap state |
+
+The diagram shows the logical ID references between tables. `users` holds all
+three roles; the `role` value distinguishes Tutors for slots and Students for
+bookings. The metadata table is independent of the consultation records.
+
+```mermaid
+erDiagram
+    USERS {
+        string id PK
+        string role
+        string email
+        string password_hash
+    }
+    MODULES {
+        string id PK
+        string code
+        string name
+    }
+    TUTOR_MODULES {
+        string tutor_id PK
+        string module_id PK
+    }
+    CONSULTATION_SLOTS {
+        string id PK
+        string tutor_id
+        string module_id
+        string start_time
+        string end_time
+        string status
+    }
+    BOOKINGS {
+        string id PK
+        string student_id
+        string slot_id
+        string created_at
+        string status
+    }
+    CONSULTATION_NOTES {
+        string booking_id PK
+        string content
+        string updated_at
+    }
+    APPLICATION_METADATA {
+        string key PK
+        string value
+    }
+
+    USERS ||..o{ TUTOR_MODULES : tutor_id
+    MODULES ||..o{ TUTOR_MODULES : module_id
+    USERS ||..o{ CONSULTATION_SLOTS : tutor_id
+    MODULES ||..o{ CONSULTATION_SLOTS : module_id
+    USERS ||..o{ BOOKINGS : student_id
+    CONSULTATION_SLOTS ||..o{ BOOKINGS : slot_id
+    BOOKINGS ||..o| CONSULTATION_NOTES : booking_id
+```
+
+The dotted associations above are conceptual references only: the SQLite
+schema declares no SQL `FOREIGN KEY` constraints. Application services and the
+consultation lifecycle validate related records where required.
+
+Slot and booking instants are stored as ISO-8601 text and parsed back to
+`Instant`; presentation uses Singapore time in the UI. Authentication hashes
+are stored in the `users` row and are only exposed through the separate
+`AuthenticationRepository` boundary. Passwords are hashed with Argon2id before
+storage; ordinary user queries do not return the hash.
+
+`SqliteDatabase` opens short-lived JDBC connections for standalone operations.
+It enables SQLite foreign-key processing on each connection, applies a
+5-second busy timeout, and serializes operations through a lock shared by the
+repository bundle. A transaction uses one connection for nested repository
+calls. If a runtime exception escapes the transaction, the coordinator rolls
+back before propagating the failure. `withExclusiveAccess` uses this transaction
+boundary for service-level read/check/write operations.
+
+Cross-entity business rules are enforced by services and the consultation
+lifecycle, rather than by declared SQL foreign-key constraints. For example,
+the database schema does not declare `FOREIGN KEY` relationships. The schema
+does enforce one important booking invariant with a partial unique index:
+there can be at most one `ACTIVE` booking per slot. The lifecycle also performs
+booking and slot transitions together:
+
+- Booking a future available slot inserts the `ACTIVE` booking and changes the
+  slot to `BOOKED` in one transaction.
+- Student cancellation changes the booking to `CANCELLED` and releases the
+  slot to `AVAILABLE` in one transaction.
+- Tutor completion requires an `ACTIVE` booking paired with a `BOOKED` slot,
+  then changes both to `COMPLETED` in one transaction.
+- Account creation stores the user and credential together. Initial Admin
+  creation also marks bootstrap complete in the same transaction.
+
+Repository `save` operations insert or replace records by ID; reads return
+immutable values and list snapshots. The common repository contract has no
+hard-delete operation for historical entities. These repository writes alone
+do not enforce every business invariant, so related state changes must use the
+lifecycle or a guarded service transaction.
+
+The schema version is tracked with `PRAGMA user_version`; version 2 is current.
+A new database (version 0) receives the current schema. Opening an existing
+database with another nonzero version fails rather than guessing how to change
+its data. There is no automatic schema upgrade or corrupt-file recovery flow.
+Tests exercise the repository bundle and transaction behavior using temporary
+databases, but do not establish multi-process concurrency guarantees.
+
+### 5.6 Time and diagnostics
 
 Services receive a `Clock`, allowing deterministic tests. Slot and booking
 times are stored as absolute instants. UI formatting and date selection use
@@ -218,7 +502,7 @@ counters are available through `metrics()`. A logging delivery failure does
 not change the outcome of a successful operation. Durable log files or a
 monitoring dashboard are not configured by this repository.
 
-### 5.6 Interface styling
+### 5.7 Interface styling
 
 `ui.AppUi` provides common headers, labelled fields, actions, and empty
 states. `src/main/resources/ui/unichope.css` applies the approved blue-and-white
@@ -273,14 +557,17 @@ operating-system test matrix.
 
 ## 7. Limitations and acknowledgements
 
-- Demo account selection provides no password authentication or account
-  security. The SQLite file is local to the working directory.
+- There is no email verification or self-service password recovery; an Admin
+  must reset a password and provide the temporary password to its user.
+- The SQLite file is local to the working directory, so launching from another
+  directory can open a different database file.
 - JavaFX calls the role services synchronously.
 - No live NUS course feed or NUSMods integration is present. Demo courses are
   selected, fixed curriculum entries; the timetable borrows an interaction
   pattern only.
-- No database schema migration, multi-process concurrency validation, or
-  production release packaging is implemented here.
+- Database schema upgrades are not supported; files with unsupported nonzero
+  schema versions are rejected. Multi-process concurrency and production
+  release packaging are not validated here.
 
 JavaFX, SQLite JDBC, Gradle, and JUnit are external dependencies. The student
 time-grid interaction was inspered by [NUSMods](https://nusmods.com/timetable).
