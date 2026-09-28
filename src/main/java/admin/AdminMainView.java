@@ -1,5 +1,6 @@
 package admin;
 
+import authentication.AuthenticationService;
 import data.repository.Repositories;
 import java.time.Clock;
 import javafx.scene.Parent;
@@ -16,7 +17,8 @@ public final class AdminMainView implements RoleView {
     public Parent create(User user, Repositories repositories, Runnable signOut) {
         AdminService service = new AdminService(repositories, user.id(), Clock.systemUTC(),
                 OperationLog.application());
-        return new AdminWorkspace(service, signOut, message -> {
+        AuthenticationService authentication = new AuthenticationService(repositories, OperationLog.application());
+        return new AdminWorkspace(service, authentication, user.id(), signOut, message -> {
             Alert alert = new Alert(Alert.AlertType.CONFIRMATION, message, ButtonType.OK, ButtonType.CANCEL);
             alert.setTitle("Confirm change");
             alert.setHeaderText("Preserve consultation history");

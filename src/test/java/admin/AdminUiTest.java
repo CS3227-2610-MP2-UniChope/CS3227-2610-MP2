@@ -1,5 +1,6 @@
 package admin;
 
+import authentication.AuthenticationService;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -34,22 +35,40 @@ class AdminUiTest {
                 var f = new AdminFixture(directory.resolve("admin-ui.db"));
                 var signedOut = new AtomicBoolean();
                 var accepted = new AtomicBoolean(true);
-                Parent root = new AdminWorkspace(f.service, () -> signedOut.set(true), text -> accepted.get()).root();
+                var auth = new AuthenticationService(f.data, util.OperationLog.application());
+                Parent root = new AdminWorkspace(f.service, auth, f.actor.id(),
+                        () -> signedOut.set(true), text -> accepted.get()).root();
                 stage.setScene(new Scene(root, 950, 620));
                 stage.show();
                 TabPane tabs = (TabPane) root.lookup("#admin-tabs");
                 assertEquals(5, tabs.getTabs().size());
                 select(root, tabs, 0);
-                field(root, "user-name").setText("New student");
+                field(root, "user-name").setText("New tutor");
                 field(root, "user-email").setText("new@example.edu");
+                ((ComboBox<Role>) root.lookup("#user-role")).setValue(Role.TUTOR);
+                ((PasswordField) root.lookup("#temporary-password")).setText("new-temporary-password-123");
+                ((PasswordField) root.lookup("#confirm-temporary-password")).setText("new-temporary-password-123");
                 button(root, "add-user").fire();
                 User added = f.data.users().findByEmail("new@example.edu").orElseThrow();
+                assertTrue(auth.login(added.email(), "new-temporary-password-123".toCharArray())
+                        .mustChangePassword());
                 field(root, "user-name").setText("Duplicate");
                 field(root, "user-email").setText("NEW@example.edu");
+                ((PasswordField) root.lookup("#temporary-password")).setText("duplicate-password-123");
+                ((PasswordField) root.lookup("#confirm-temporary-password")).setText("duplicate-password-123");
                 button(root, "add-user").fire();
                 assertTrue(message(root).contains("Email already exists"));
                 assertEquals(4, f.data.users().findAll().size());
                 TableView<User> users = typedTable(root, "users-table");
+
+                users.getSelectionModel().select(users.getItems().stream()
+                        .filter(user -> user.id().equals(f.student.id())).findFirst().orElseThrow());
+                ((PasswordField) root.lookup("#temporary-password")).setText("legacy-reset-password-123");
+                ((PasswordField) root.lookup("#confirm-temporary-password")).setText("legacy-reset-password-123");
+                button(root, "reset-password").fire();
+                assertTrue(auth.login(f.student.email(), "legacy-reset-password-123".toCharArray())
+                        .mustChangePassword());
+
                 users.getSelectionModel().select(added);
                 accepted.set(false);
                 button(root, "deactivate-user").fire();

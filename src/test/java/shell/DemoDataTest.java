@@ -15,11 +15,12 @@ class DemoDataTest {
     @TempDir Path directory;
 
     @Test
-    void seedsNusCsCurriculumModulesAsActiveAndOnlyOnce() {
+    void seedFreshDatabase_addsCurriculumWithoutDemoAccounts() {
         var data = SqliteRepositories.open(directory.resolve("fresh.db"));
 
         DemoData.seed(data);
         var modules = data.modules().findAll();
+        assertTrue(data.users().findAll().isEmpty());
         assertEquals(15, modules.size());
         assertTrue(modules.stream().allMatch(Module::isActive));
         assertEquals(Set.of("CS1101S", "ES2660", "IS1108", "CS1231S", "CS2030S", "CS2040S",
@@ -30,7 +31,7 @@ class DemoDataTest {
 
         DemoData.seed(data);
         assertEquals(modules, data.modules().findAll());
-        assertEquals(3, data.users().findAll().size());
+        assertTrue(data.users().findAll().isEmpty());
     }
 
     @Test

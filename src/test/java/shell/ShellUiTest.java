@@ -1,48 +1,88 @@
 package shell;
 
+import authentication.AuthenticationService;
+import data.repository.Repositories;
+import data.sqlite.SqliteRepositories;
+import java.nio.file.Path;
+import java.time.Clock;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.TimeUnit;
 import javafx.application.Platform;
 import javafx.scene.control.Button;
-import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.PasswordField;
+import javafx.scene.control.TextField;
 import javafx.stage.Stage;
 import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+import util.OperationLog;
+
 import static org.junit.jupiter.api.Assertions.*;
 
-/** Real JavaFX scene smoke test. Run separately with uiTest on a desktop. */
+/** Real JavaFX authentication flow test. Run separately with uiTest on a desktop. */
 @Tag("ui")
 class ShellUiTest {
+    @TempDir Path directory;
+
     @Test
-    void loginAndLogoutWorkForAllThreeRoles() throws Exception {
+    void authenticationScreens_setupLoginPasswordChangeAndStudentSignupWork() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         Platform.startup(started::countDown);
         assertTrue(started.await(15, TimeUnit.SECONDS));
+        Repositories repositories = SqliteRepositories.open(directory.resolve("shell.db"));
+        var authentication = new AuthenticationService(repositories,
+                new OperationLog(Clock.systemUTC(), event -> { }));
         FutureTask<Void> test = new FutureTask<>(() -> {
             Stage stage = new Stage();
             try {
-                new UniChopeApplication().start(stage);
-                snapshot(stage, "login");
-                var loginRoot = stage.getScene().getRoot();
-                loginRoot.resize(900, 660);
-                support.UiSnapshots.save(loginRoot, "login-small");
-                loginRoot.resize(1180, 780);
-                for (String role : new String[] {"Student", "Tutor", "Admin"}) {
-                    var root = stage.getScene().getRoot();
-                    ComboBox<?> accounts = (ComboBox<?>) root.lookup("#account-selector");
-                    Button login = (Button) root.lookup("#sign-in");
-                    assertTrue(login.isDisabled());
-                    int index = switch (role) { case "Student" -> 0; case "Tutor" -> 1; default -> 2; };
-                    accounts.getSelectionModel().select(index);
-                    login.fire();
-                    Label heading = (Label) stage.getScene().getRoot().lookup("#role-heading");
-                    assertEquals(role + " workspace", heading.getText());
-                    snapshot(stage, role.toLowerCase());
-                    ((Button) stage.getScene().getRoot().lookup("#sign-out")).fire();
-                    assertNotNull(stage.getScene().getRoot().lookup("#account-selector"));
-                }
+                new UniChopeApplication(repositories).start(stage);
+                assertNotNull(stage.getScene().getRoot().lookup("#setup-admin"));
+                assertNull(stage.getScene().getRoot().lookup("#account-selector"));
+
+                text(stage, "#setup-name", "Root Admin");
+                text(stage, "#setup-email", "root@example.edu");
+                password(stage, "#setup-password", "admin-password-123");
+                password(stage, "#setup-confirm", "admin-password-123");
+                click(stage, "#setup-admin");
+                assertNotNull(stage.getScene().getRoot().lookup("#login-email"));
+
+                var admin = repositories.users().findByEmail("root@example.edu").orElseThrow();
+                authentication.provisionAccount(admin.id(), model.user.Role.TUTOR, "Tutor", "tutor@example.edu",
+                        "temporary-password-456".toCharArray());
+                text(stage, "#login-email", "root@example.edu");
+                password(stage, "#login-password", "wrong-password-123");
+                click(stage, "#sign-in");
+                assertEquals("Email or password is incorrect.", ((Label) stage.getScene().getRoot()
+                        .lookup("#login-error")).getText());
+                password(stage, "#login-password", "admin-password-123");
+                click(stage, "#sign-in");
+                assertEquals("Admin workspace", ((Label) stage.getScene().getRoot()
+                        .lookup("#role-heading")).getText());
+
+                click(stage, "#sign-out");
+                text(stage, "#login-email", "tutor@example.edu");
+                password(stage, "#login-password", "temporary-password-456");
+                click(stage, "#sign-in");
+                assertNotNull(stage.getScene().getRoot().lookup("#new-password"));
+                password(stage, "#current-password", "temporary-password-456");
+                password(stage, "#new-password", "tutor-new-password-789");
+                password(stage, "#confirm-new-password", "tutor-new-password-789");
+                click(stage, "#change-password");
+                assertEquals("Tutor workspace", ((Label) stage.getScene().getRoot()
+                        .lookup("#role-heading")).getText());
+
+                click(stage, "#sign-out");
+                click(stage, "#student-signup");
+                assertNotNull(stage.getScene().getRoot().lookup("#signup-name"));
+                text(stage, "#signup-name", "Alice");
+                text(stage, "#signup-email", "alice@example.edu");
+                password(stage, "#signup-password", "student-password-123");
+                password(stage, "#signup-confirm", "student-password-123");
+                click(stage, "#register-student");
+                assertEquals("Student workspace", ((Label) stage.getScene().getRoot()
+                        .lookup("#role-heading")).getText());
             } finally {
                 stage.close();
             }
@@ -50,13 +90,21 @@ class ShellUiTest {
         });
         try {
             Platform.runLater(test);
-            test.get(30, TimeUnit.SECONDS);
+            test.get(60, TimeUnit.SECONDS);
         } finally {
             Platform.exit();
         }
     }
 
-    private static void snapshot(Stage stage, String name) throws Exception {
-        support.UiSnapshots.save(stage.getScene().getRoot(), name);
+    private static void text(Stage stage, String selector, String value) {
+        ((TextField) stage.getScene().getRoot().lookup(selector)).setText(value);
+    }
+
+    private static void password(Stage stage, String selector, String value) {
+        ((PasswordField) stage.getScene().getRoot().lookup(selector)).setText(value);
+    }
+
+    private static void click(Stage stage, String selector) {
+        ((Button) stage.getScene().getRoot().lookup(selector)).fire();
     }
 }

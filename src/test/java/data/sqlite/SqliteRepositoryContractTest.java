@@ -50,6 +50,17 @@ class SqliteRepositoryContractTest {
     }
 
     @Test
+    void createAccount_invalidHash_doesNotLeaveUser() {
+        Student student = new Student(UUID.randomUUID(), "Alice", "alice@example.edu", true);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> repositories.authentication().createAccount(student, "plain-password", false));
+
+        assertTrue(repositories.users().findById(student.id()).isEmpty());
+        assertTrue(repositories.authentication().findCredentialByEmail(student.email()).isEmpty());
+    }
+
+    @Test
     void assignmentsAreIdempotentAndCanBeRemovedWithoutDeletingModuleHistory() {
         Module module = new Module(UUID.randomUUID(), "CS3227", "Software Engineering", true);
         repositories.modules().save(module);
