@@ -10,10 +10,12 @@ import java.sql.Statement;
 import java.util.Objects;
 import java.util.concurrent.locks.ReentrantLock;
 import java.util.function.Supplier;
+import org.sqlite.SQLiteConfig;
 
 /** Shared connection and transaction coordinator for one SQLite repository bundle. */
 final class SqliteDatabase {
     private static final int SCHEMA_VERSION = 2;
+    private static final int BUSY_TIMEOUT_MILLIS = 5000;
     private final String url;
     private final ReentrantLock lock = new ReentrantLock();
     private final ThreadLocal<Connection> transactionConnection = new ThreadLocal<>();
@@ -35,7 +37,7 @@ final class SqliteDatabase {
         Connection connection = transactionConnection.get();
         if (connection != null) { return apply(operation, connection); }
         lock.lock();
-        try (Connection opened = openConnection()) {
+        try (Connection opened = openConnection(false)) {
             return apply(operation, opened);
         } catch (SQLException failure) {
             throw new IllegalStateException("SQLite operation failed", failure);
@@ -48,7 +50,7 @@ final class SqliteDatabase {
         Objects.requireNonNull(operation, "operation");
         if (transactionConnection.get() != null) { return operation.get(); }
         lock.lock();
-        try (Connection connection = openConnection()) {
+        try (Connection connection = openConnection(true)) {
             connection.setAutoCommit(false);
             transactionConnection.set(connection);
             try {
@@ -128,8 +130,11 @@ final class SqliteDatabase {
                 + "VALUES ('auth_bootstrap_complete', 'false')");
     }
 
-    private Connection openConnection() throws SQLException {
-        Connection connection = DriverManager.getConnection(url);
+    private Connection openConnection(boolean transaction) throws SQLException {
+        SQLiteConfig config = new SQLiteConfig();
+        config.setBusyTimeout(BUSY_TIMEOUT_MILLIS);
+        if (transaction) { config.setTransactionMode(SQLiteConfig.TransactionMode.IMMEDIATE); }
+        Connection connection = DriverManager.getConnection(url, config.toProperties());
         try (Statement statement = connection.createStatement()) {
             statement.execute("PRAGMA foreign_keys = ON");
         }
