@@ -144,3 +144,13 @@ tables consistent.
 
 To reduce this problem, I ask the agent to update a persistent work log after each task. Each entry should record the request, decisions made, files changed, commands run, observed results, and any unresolved issues. Before starting the next task, the agent should review that log and carry forward the relevant decisions. I would also compare the
 log with the code changes and test output, so the record stays useful for both the agent and my evaluation of its work.
+
+
+
+# Tieu Trong Phuc's Reflection
+
+Agentic AI was particularly useful for diagnosing a dependency-related bug. When a teammate forgot to update the database schema, I initially thought the application could not download a new dependency and struggled to identify the actual cause. The agent helped trace the failure to the outdated schema. Using the agent earlier would have saved me considerable debugging time.
+
+If I were to redesign the UI, I would choose a consistent visual style before implementation. The references in `design.md`, from [Refero](https://styles.refero.design/), became helpful only after I had already spent hours experimenting, and the resulting UI still lacked consistency. This experience taught me that even a capable agent needs explicit instructions and checkpoints.
+
+Learned from MP1, I matched the agent's skills to each task. For service-layer logic, I instructed the agent to create unit tests alongside the implementation. I knew this approach was working when the agent automatically produced well written test cases that clearly verified the behaviour of the newly implemented services.

@@ -30,17 +30,14 @@ UniChope stores account details and password hashes locally. The role is
 attached to the account, so the sign-in screen does not ask you to choose
 Student, Tutor, or Admin. Use **Sign out** in a workspace to return to sign in.
 
-#### Initial Admin setup and sign-in
+#### Default Admin sign-in
 
-If initial Admin setup has not been completed, UniChope opens the one-time
-setup form instead of the login form. Enter the first administrator's name,
-email, and password twice, then press **Create administrator**. Passwords
-must be 8–128 characters. UniChope then opens the sign-in screen; sign in
-with the Admin account you just created.
+A fresh database includes an active Admin account. Sign in with:
 
-![First-time administrator setup](images/auth-initial-admin-setup.png)
+- Email: `admin@u.nus.edu`
+- Password: `12345678`
 
-![Sign-in screen shown after initial Admin setup](images/auth-sign-in.png)
+![Admin sign-in screen](images/auth-sign-in.png)
 
 #### Additional Admin accounts
 
@@ -81,7 +78,8 @@ Students, Tutors, and Admins.
 
 A fresh database also receives 15 active modules selected from the
 [NUS CS AY2026/27 curriculum](https://www.comp.nus.edu.sg/cug/per-cohort/cs/cs-26-27/).
-It starts without Tutor assignments, consultation slots, or bookings.
+It starts without Tutor assignments, consultation slots, or bookings. Restarting
+the application does not recreate or overwrite an existing Admin account.
 Existing module edits and deactivations are preserved when the app restarts.
 
 ## 2. Interface tour
@@ -100,8 +98,7 @@ over their cells in the admin workspace.
 
 These steps exercise the main workflow with accounts created in the app.
 
-1. On first launch, create the initial Admin account as described above and
-   sign in. On later launches, sign in with the existing Admin account.
+1. On first launch, sign in with the default Admin account described above.
 2. In the Admin workspace, open **Users**. Create a Tutor account with a
    temporary password. Open **Assignments**, choose that Tutor and an active
    module such as `CS1101S`, then press **Assign**.

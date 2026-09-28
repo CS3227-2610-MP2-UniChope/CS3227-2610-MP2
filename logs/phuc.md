@@ -1,11 +1,14 @@
 # Phuc — repository interaction log
 
-Recorded on 27 September 2026. This cumulative log summarizes every repository-related
-user request visible in this conversation, in order. It records work performed with
+Started on 27 September 2026 and updated on 28 September 2026. This cumulative log
+summarizes every repository-related user request visible in the available conversation
+context, in order. It records work performed with
 Codex assistance and distinguishes requests, previews, implementation, and verification.
 It does not infer independently authored student work, personal reflections, or
 interactions from other conversations. Earlier entries are reconstructed from the
 available conversation context and checked against repository files/history where possible.
+Append each subsequent repository interaction to this file with its request, work,
+outcome, and verification where applicable.
 
 ## 1. Browse and filter available consultation slots
 
@@ -242,7 +245,7 @@ conflicts, no divergence from `origin/main`, and no whitespace errors. Applicati
 tests were not rerun because this operation restored existing work without changing
 application logic.
 
-## State after stash recovery
+## Historical state after stash recovery (27 September 2026)
 
 - Available-slot browsing uses calendar → daily timetable → explicit booking.
 - Course/tutor searches and independent My bookings course/tutor/date filters remain.
@@ -252,3 +255,38 @@ application logic.
   based on that main revision, with the recovered UI changes in its working tree.
 - The original UI stash and the local recovery backup remain available.
 - No new commit, push, or pull request was created during stash recovery.
+
+## 13. Keep this repository interaction log current
+
+**Request:** Update `logs/phuc.md` for every interaction concerning this repository.
+
+**Work and outcome:**
+
+- Made the append rule explicit above and recorded this request as the next interaction.
+- Marked the stash-recovery state as historical so its `branch_UI` description is not
+  mistaken for the current branch. On 28 September 2026, the checked-out branch is `main`.
+- Preserved existing entries and kept unrelated untracked files unchanged.
+- This is a documentation-only update; no application tests were run.
+
+## 14. Seed a default administrator account
+
+**Request:** Initialize a fresh application database with a default Admin account using
+`admin@u.nus.edu` and password `12345678`, document the credentials, and record the
+interaction in this log.
+
+**Work and outcome:**
+
+- Updated startup data seeding to create the active default Admin only while
+  authentication bootstrap is incomplete.
+- Reused `AuthenticationService` so the password is validated and stored as an
+  Argon2id hash rather than plaintext.
+- Kept repeat startup safe: once bootstrap is complete, seeding does not recreate or
+  overwrite an existing Admin account.
+- Updated the user and developer guides to describe the default credentials and
+  startup behaviour.
+- Updated the startup seed, repository, and authentication UI tests for the default
+  Admin flow.
+
+**Verification:** All 146 logic tests passed. The targeted `ShellUiTest` also passed,
+covering default Admin sign-in, invalid-password feedback, Tutor first-password change,
+and Student registration.
