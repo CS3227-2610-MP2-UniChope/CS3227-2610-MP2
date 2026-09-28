@@ -81,8 +81,6 @@ final class SqliteDatabase {
                 try (Statement statement = connection.createStatement()) {
                     if (version == 0) {
                         createSchema(statement);
-                    } else if (version == 1) {
-                        migrateV1ToV2(statement);
                     } else if (version != SCHEMA_VERSION) {
                         throw new IllegalStateException("Unsupported SQLite schema version: " + version);
                     }
@@ -114,13 +112,6 @@ final class SqliteDatabase {
                 + "WHERE status = 'ACTIVE'");
         statement.executeUpdate("CREATE TABLE consultation_notes (booking_id TEXT PRIMARY KEY, content TEXT NOT NULL, "
                 + "updated_at TEXT NOT NULL)");
-        createAuthenticationMetadata(statement);
-    }
-
-    private static void migrateV1ToV2(Statement statement) throws SQLException {
-        statement.executeUpdate("ALTER TABLE users ADD COLUMN password_hash TEXT");
-        statement.executeUpdate("ALTER TABLE users ADD COLUMN must_change_password INTEGER NOT NULL DEFAULT 1 "
-                + "CHECK (must_change_password IN (0, 1))");
         createAuthenticationMetadata(statement);
     }
 

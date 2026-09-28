@@ -23,16 +23,66 @@ access to obtain the Java toolchain and dependencies. See the
 UniChope stores data in `data/unichope.db` relative to the directory from
 which it runs. Bookings and edits remain after closing and reopening the app.
 
-### 1.2 Choose a demo account
+---
+### 1.2 Create an account and sign in
 
-Select **Demo Admin**, **Demo Tutor**, or **Demo Student** from the account
-selector, then press **Continue**. Use **Sign out** in a workspace to return
-to the selector. This is a demo login: it does not ask for or verify a password.
+UniChope stores account details and password hashes locally. The role is
+attached to the account, so the sign-in screen does not ask you to choose
+Student, Tutor, or Admin. Use **Sign out** in a workspace to return to sign in.
 
-A new database contains these three accounts and 15 active modules selected
-from the [NUS CS AY2026/27 curriculum](https://www.comp.nus.edu.sg/cug/per-cohort/cs/cs-26-27/).
-It starts without tutor assignments, consultation slots, or bookings. Existing
-module edits and deactivations are preserved when the app restarts.
+#### Initial Admin setup and sign-in
+
+If initial Admin setup has not been completed, UniChope opens the one-time
+setup form instead of the login form. Enter the first administrator's name,
+email, and password twice, then press **Create administrator**. Passwords
+must be 8–128 characters. UniChope then opens the sign-in screen; sign in
+with the Admin account you just created.
+
+![First-time administrator setup](images/auth-initial-admin-setup.png)
+
+![Sign-in screen shown after initial Admin setup](images/auth-sign-in.png)
+
+#### Additional Admin accounts
+
+After initial setup, an existing Admin can create another Admin account from
+the **Users** tab. The Admin enters the new user's name and email, chooses
+`ADMIN`, and sets a temporary password and confirmation. Give that temporary
+password to the new Admin. At first sign-in, they must change it before the
+Admin workspace opens. If another active Admin is available, they can reset a
+forgotten password from **Users**; the replacement temporary password must
+also be changed at sign-in.
+
+![Admin account creation and password reset controls](images/auth-account-provisioning.png)
+
+#### Tutor account and first sign-in
+
+Tutors cannot self-register. Ask an Admin to create your Tutor account and
+provide its temporary password. If you need a password reset later, ask an
+Admin to reset it from **Users**. Sign in with your email and the temporary
+password; UniChope asks you to choose a new password before opening the Tutor
+workspace.
+
+![Tutor's first sign-in requires a password change](images/auth-tutor-password-change.png)
+
+#### Student account
+
+Students can register themselves. On the sign-in screen, select **Create
+student account**. Enter your name, email, and password twice, then press
+**Create student account**. UniChope signs you in and opens the Student
+workspace.
+
+![Student self-registration](images/auth-student-registration.png)
+
+#### Returning sign-in
+
+Enter your email and password, then press **Sign in**. UniChope opens the
+workspace for the role stored on your account. This sign-in form is shared by
+Students, Tutors, and Admins.
+
+A fresh database also receives 15 active modules selected from the
+[NUS CS AY2026/27 curriculum](https://www.comp.nus.edu.sg/cug/per-cohort/cs/cs-26-27/).
+It starts without Tutor assignments, consultation slots, or bookings.
+Existing module edits and deactivations are preserved when the app restarts.
 
 ## 2. Interface tour
 
@@ -48,23 +98,25 @@ over their cells in the admin workspace.
 
 ## 3. First consultation walkthrough
 
-These steps exercise the main workflow using a fresh demo database.
+These steps exercise the main workflow with accounts created in the app.
 
-1. Sign in as **Demo Admin**. Open **Assignments**, choose **Demo Tutor** and
-   an active module such as `CS1101S`, then press **Assign**.
-2. Sign out and enter as **Demo Tutor**. Open **Slots**, select a future date
-   and the assigned module, enter a start and end time in `HH:mm` format
-   such as `10:00` and `10:30`, then press **Create**.
-3. Sign out and enter as **Demo Student**. In **Available slots**, choose
-   the slot's date on the month calendar. Select its coloured block in the
-   timetable, check the details below it, then press **Book selected**.
-4. Open **My bookings** to see the ACTIVE booking.
-5. Sign out and enter as **Demo Tutor**. In **Bookings**, select the booking
-   and press **Complete selected** after the consultation. The completed
-   booking appears in **History & Notes**, where you can select it, write a
-   note, and press **Save note**.
-6. Sign in as **Demo Admin** and open **Bookings** or **Statistics** to
-   review the resulting records.
+1. On first launch, create the initial Admin account as described above and
+   sign in. On later launches, sign in with the existing Admin account.
+2. In the Admin workspace, open **Users**. Create a Tutor account with a
+   temporary password. Open **Assignments**, choose that Tutor and an active
+   module such as `CS1101S`, then press **Assign**.
+3. Sign out. The Tutor signs in with the temporary password and sets a new
+   password when prompted. In **Slots**, choose a future date and the
+   assigned module, enter `10:00` and `10:30`, then press **Create**.
+4. Sign out. On the sign-in screen, select **Create student account** and
+   register a Student account. The Student enters **Available slots**, picks
+   the slot's date, selects its timetable block, and presses **Book selected**.
+5. In **My bookings**, confirm the booking is `ACTIVE`. Sign out and sign in
+   as the Tutor. In **Bookings**, select the booking and press **Complete
+   selected** after the consultation.
+6. In **History & Notes**, select the completed consultation, enter a note,
+   and press **Save note**. Sign out and return to the Admin account to review
+   the records in **Bookings** or **Statistics**.
 
 Times entered by the tutor and all dates shown to students are interpreted in
 SGT. Choose a date and start time that have not already passed.
@@ -112,32 +164,70 @@ remains in your history as CANCELLED and the slot becomes available again.
 
 ## 5. Tutor workspace
 
-### 5.1 Offer or cancel slots
+The tutor workspace has three tabs: **Slots**, **Bookings**, and **History &
+Notes**. Dates and times use Singapore time (SGT); table times appear as
+`dd/MM/yyyy HH:mm`. Press **Refresh** to reload the tables.
 
-In **Slots**, choose a date, an active module assigned to your tutor account,
-and start/end times in 24-hour `HH:mm` format. Press **Create**. The slot
-must start in the future, end after it starts, and not overlap another
-AVAILABLE or BOOKED slot owned by you. The table shows your upcoming
-AVAILABLE and BOOKED slots for the selected date.
+### 5.1 Offer and manage slots
 
-Select an AVAILABLE slot and press **Cancel selected** to withdraw it.
-A BOOKED slot cannot be withdrawn this way; its booking must be resolved
-through the relevant booking workflow.
+The table starts by showing all your upcoming AVAILABLE and BOOKED slots.
+Choose **Date · SGT** to see one day, or press **Show all upcoming** to clear
+the date filter. To create a slot, choose a future date and an active assigned
+module, then enter a start and end time in 24-hour `HH:mm` format. The end
+must be later than the start, and the slot cannot overlap another AVAILABLE
+or BOOKED slot you own.
 
-### 5.2 Filter and complete bookings
+**Create example:** Choose **30/09/2026** and **CS3227**, enter `10:00` and
+`10:30`, then press **Create**. The new row appears as `AVAILABLE`.
 
-The **Bookings** tab can filter by module, date, and status. Choose the
-values and press **Filter**. Select an ACTIVE booking for your slot and press
-**Complete selected**. Completing the consultation updates both the booking
-and the slot to COMPLETED.
+**Cancel example:** Select an AVAILABLE row and press **Cancel selected**. If
+the slot is BOOKED, its student must cancel the booking first. The released
+slot then becomes AVAILABLE and can be cancelled by the tutor.
 
-### 5.3 Review history and notes
+![Tutor Slots tab after creating an available consultation slot](images/tutor-slots.png)
 
-In **History & Notes**, choose a date and CANCELLED or COMPLETED slot status,
-then press **Filter history** to inspect slot history. The completed bookings
-table lists your completed consultations. Select one to **Load note**, edit
-the note text, or **Save note**. Notes belong to a booking and are stored
-with the rest of the local data.
+*Example: CS3227 is available on 30/09/2026 from 10:00 to 10:30.*
+
+### 5.2 Review bookings and complete consultations
+
+The table shows your bookings with student, course, date/time, and status.
+Use **Course**, **Date · SGT**, and **Status**, then press **Filter**.
+
+**Filter example:** To find an active CS3227 booking on 30 September, choose
+**CS3227**, **30/09/2026**, and `ACTIVE`, then press **Filter**.
+
+**Complete example:** Select that ACTIVE booking and press **Complete
+selected**. Both the booking and slot become `COMPLETED`. You may mark it
+complete before its scheduled end if the consultation finishes early.
+
+![Tutor Bookings tab with an active booking selected](images/tutor-bookings.png)
+
+*Example: select the ACTIVE booking, then press **Complete selected**.*
+
+### 5.3 Review slot history and manage notes
+
+This tab has **Slot history** and a separate table of completed consultations.
+Slot history shows one status at a time: `CANCELLED` or `COMPLETED`.
+
+**Filter history example:** To see completed slots on 30 September, choose
+**30/09/2026** and `COMPLETED`, then press **Filter history**. Choose
+`CANCELLED` instead to see cancelled slots for that date.
+
+**Show all history example:** Choose `CANCELLED` and press **Show all
+history** to see cancelled slots from every date. The status stays selected;
+cancelled and completed slots are never combined. This filter does not change
+the separate completed consultations table, which lists all your completed
+bookings.
+
+**Save note example:** Select a completed consultation and press **Load note**.
+If no note exists, the text box is blank. Enter `Reviewed recursion; practise
+tracing tree traversal.` and press **Save note**. The note is saved to that
+booking; saving again replaces its previous note. Notes remain available
+after you close and reopen the app.
+
+![Tutor History and Notes tab with a completed consultation selected](images/tutor-history-notes.png)
+
+*Example: load, edit, and save a note for the selected completed consultation.*
 
 ## 6. Admin workspace
 
@@ -146,10 +236,14 @@ account. Tables retain inactive records and booking history when relevant.
 
 ### 6.1 Users
 
-Enter a name and email, choose STUDENT or TUTOR, and press **Add user**.
-Names must not be blank. Email addresses must be valid and unique without
-regard to case, including among inactive accounts. Admin accounts cannot be
-created or managed here.
+Enter a name and email, choose TUTOR or ADMIN, provide a temporary password
+and confirmation, then press **Create account**. Give the temporary password
+to the account holder; they must change it at first sign-in. Students create
+their own accounts from the sign-in screen. Names must not be blank. Email
+addresses must be valid and unique without regard to case, including among
+inactive accounts.
+
+![Admin creating a Tutor or Admin account](images/auth-account-provisioning.png)
 
 Select a user and press **Deactivate selected**, then confirm. Deactivation
 retains the record and its history; it does not permanently delete the user.
@@ -167,7 +261,7 @@ and press **Save selected**. Its identity and active status are preserved.
 AVAILABLE slots for that module block deactivation. Assignments remain in
 history, but inactive modules cannot receive new assignments.
 
-The fresh demo database seeds these modules:
+The fresh database seeds these modules:
 
 | Computing and communication | Mathematics and statistics |
 | --- | --- |
@@ -232,11 +326,52 @@ this version has no automatic schema migration.
 
 ## 8. Current limitations
 
-- The login selector is for demonstrations and provides no password
-  authentication.
+- Rescheduling is not available as a single action. For a future booking, the
+  student must cancel it before the slot starts; the tutor can then cancel the
+  released slot and create a replacement for the student to book.
+- There is no email verification or self-service password recovery. An Admin
+  must reset a password and provide the temporary password to the user; the
+  user must change it at the next sign-in.
 - All data is local. There is no shared server, live NUS course feed, or
   NUSMods account integration.
 - The seeded modules are a selected list; assignments and slots must be
   created in the app before a student can make a booking.
 - `installDist` builds a development distribution for the current platform;
   a cross-platform release JAR has not been validated here.
+
+## 9. Frequently asked questions
+
+### Where is my data stored? Will it remain after I close the app?
+
+Data is saved in `data/unichope.db` relative to the app's working directory.
+Changes are stored as you make them. If you launch the app from a different
+directory, it may open a different database file.
+
+### Why can’t I see any modules or slots as a tutor?
+
+Tutors see only active modules assigned to them. An Admin must create the
+Tutor account and assign at least one active module. The app seeds 15 modules
+in a fresh database, but does not create tutor assignments or consultation
+slots. Ask an assigned tutor to create a future slot, then refresh.
+
+### How do I get a Tutor account?
+
+Tutors cannot self-register. An Admin creates the account and gives the Tutor
+a temporary password. The Tutor chooses a new password at first sign-in.
+
+### What if I forget my password?
+
+Ask an Admin to reset it. The Admin gives you a temporary password, which you
+must change at your next sign-in. There is no self-service password recovery.
+
+### Where can I find cancelled or completed slots?
+
+Tutors can open **History & Notes** and choose either `CANCELLED` or
+`COMPLETED` for Slot history. Those statuses are shown separately, not
+together. See [Review slot history and manage notes](#53-review-slot-history-and-manage-notes).
+
+### Can a booked consultation be rescheduled?
+
+Not in one action. The Student must cancel the future booking before it starts.
+The Tutor can then cancel the released slot and create a replacement for the
+Student to book.
