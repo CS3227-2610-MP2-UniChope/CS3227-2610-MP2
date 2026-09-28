@@ -102,11 +102,14 @@ nonzero schema version are rejected; the application does not upgrade them.
 `DemoData.seed` adds 15 selected active requirements from the
 [NUS CS AY2026/27 curriculum](https://www.comp.nus.edu.sg/cug/per-cohort/cs/cs-26-27/)
 when their codes are missing, while preserving existing edits and
-deactivations. It does not create user accounts, assignments, consultation
-slots, or bookings.
+deactivations. When authentication bootstrap is incomplete, it also creates
+the default active Admin account through `AuthenticationService`, which hashes
+the password with Argon2id before persistence. It does not create assignments,
+consultation slots, or bookings.
 
-If authentication bootstrap is incomplete, the shell shows the one-time
-initial Admin setup. Otherwise, users sign in with email and password.
+After startup seeding, users sign in with email and password. The one-time
+initial Admin setup remains as a fallback for a database whose bootstrap state
+is incomplete and which is opened without startup seeding.
 `AuthenticationService` validates the credentials and account status against
 SQLite; an account flagged for a required password change must update its
 password before continuing. The shell stores the authenticated identity in
@@ -171,12 +174,12 @@ by SQLite. It alone returns `StoredCredential`; ordinary user lookups do not
 expose password hashes. The user's stored role—not a role selected at sign-in—
 determines which workspace `RoleRouter` opens.
 
-On startup, the shell checks whether initial Admin setup is still required.
-The first Admin is created once and bootstrap completion is recorded in the
-same transaction. Anyone may register as a Student. An authenticated Admin
-creates Tutor and additional Admin accounts with temporary passwords; those
-accounts must change their password at first sign-in. Admin password resets
-also require a change at the next sign-in.
+On startup, demo-data initialization creates the default Admin once if
+authentication bootstrap is incomplete. The account and bootstrap completion
+are recorded in the same transaction. Anyone may register as a Student. An
+authenticated Admin creates Tutor and additional Admin accounts with temporary
+passwords; those accounts must change their password at first sign-in. Admin
+password resets also require a change at the next sign-in.
 
 Passwords must contain 8–128 characters. `AuthenticationService` hashes them
 with Argon2id before storage, verifies the encoded hash at login, rejects
@@ -187,10 +190,8 @@ credential check failed. The database and hashing details are covered in
 
 ```mermaid
 flowchart TD
-    start([Application starts]) --> setup{Initial Admin setup required?}
-    setup -- Yes --> createAdmin[Create initial Admin]
-    createAdmin --> signIn
-    setup -- No --> signIn[Enter email and password]
+    start([Application starts]) --> seed[Seed default Admin if bootstrap is incomplete]
+    seed --> signIn[Enter email and password]
     signIn --> verify[AuthenticationService verifies credentials and active status]
     verify --> valid{Credentials valid?}
     valid -- No --> retry([Show sign-in error])

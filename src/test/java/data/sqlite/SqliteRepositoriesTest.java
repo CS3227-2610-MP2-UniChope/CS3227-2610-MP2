@@ -14,6 +14,7 @@ import model.consultation.ConsultationSlot;
 import model.consultation.SlotStatus;
 import model.module.Module;
 import model.module.TutorModule;
+import model.user.Role;
 import model.user.Student;
 import model.user.Tutor;
 import org.junit.jupiter.api.Test;
@@ -166,14 +167,16 @@ class SqliteRepositoriesTest {
     }
 
     @Test
-    void seed_existingDatabase_preservesExistingUsers() {
+    void seed_unbootstrappedDatabase_preservesExistingUsersAndAddsDefaultAdmin() {
         var repositories = SqliteRepositories.open(directory.resolve("unichope.db"));
         Student student = new Student(UUID.randomUUID(), "Existing", "existing@example.edu", true);
         repositories.users().save(student);
 
         DemoData.seed(repositories);
 
-        assertEquals(List.of(student), repositories.users().findAll());
+        assertEquals(2, repositories.users().findAll().size());
+        assertEquals(student, repositories.users().findById(student.id()).orElseThrow());
+        assertEquals(Role.ADMIN, repositories.users().findByEmail("admin@u.nus.edu").orElseThrow().role());
     }
 
     private ConsultationRecords bookedConsultation() {
