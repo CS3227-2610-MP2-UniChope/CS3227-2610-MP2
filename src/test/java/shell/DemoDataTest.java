@@ -1,26 +1,38 @@
 package shell;
 
+import authentication.AuthenticationService;
 import data.sqlite.SqliteRepositories;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import model.module.Module;
+import model.user.Role;
 import model.user.Student;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import util.OperationLog;
 import static org.junit.jupiter.api.Assertions.*;
 
 class DemoDataTest {
     @TempDir Path directory;
 
     @Test
-    void seedFreshDatabase_addsCurriculumWithoutDemoAccounts() {
+    void seedFreshDatabase_addsCurriculumAndDefaultAdmin() {
         var data = SqliteRepositories.open(directory.resolve("fresh.db"));
 
         DemoData.seed(data);
         var modules = data.modules().findAll();
-        assertTrue(data.users().findAll().isEmpty());
+        var admin = data.users().findByEmail(DemoData.DEFAULT_ADMIN_EMAIL).orElseThrow();
+        assertEquals(1, data.users().findAll().size());
+        assertEquals(Role.ADMIN, admin.role());
+        assertTrue(admin.isActive());
+        var authentication = new AuthenticationService(data,
+                new OperationLog(Clock.systemUTC(), event -> { }));
+        assertEquals(admin, authentication.login(DemoData.DEFAULT_ADMIN_EMAIL,
+                DemoData.DEFAULT_ADMIN_PASSWORD.toCharArray()).user());
+        assertFalse(authentication.initialAdminSetupRequired());
         assertEquals(15, modules.size());
         assertTrue(modules.stream().allMatch(Module::isActive));
         assertEquals(Set.of("CS1101S", "ES2660", "IS1108", "CS1231S", "CS2030S", "CS2040S",
@@ -31,7 +43,7 @@ class DemoDataTest {
 
         DemoData.seed(data);
         assertEquals(modules, data.modules().findAll());
-        assertTrue(data.users().findAll().isEmpty());
+        assertEquals(1, data.users().findAll().size());
     }
 
     @Test
@@ -43,7 +55,8 @@ class DemoDataTest {
         data.modules().save(custom);
 
         DemoData.seed(data);
-        assertEquals(Set.of(student), Set.copyOf(data.users().findAll()));
+        assertEquals(Set.of(student, data.users().findByEmail(DemoData.DEFAULT_ADMIN_EMAIL).orElseThrow()),
+                Set.copyOf(data.users().findAll()));
         assertEquals(custom, data.modules().findById(custom.id()).orElseThrow());
         assertEquals(15, data.modules().findAll().size());
 
@@ -54,5 +67,19 @@ class DemoDataTest {
         assertEquals(15, data.modules().findAll().size());
         assertEquals(edited, data.modules().findById(original.id()).orElseThrow());
         assertTrue(data.modules().findAll().stream().noneMatch(m -> m.code().equals("CS2030S")));
+    }
+
+    @Test
+    void seedInitializedDatabase_preservesExistingAdminWithoutAddingDefaultAdmin() {
+        var data = SqliteRepositories.open(directory.resolve("initialized.db"));
+        var authentication = new AuthenticationService(data,
+                new OperationLog(Clock.systemUTC(), event -> { }));
+        var existing = authentication.setupInitialAdmin("Existing Admin", "existing-admin@u.nus.edu",
+                "existing-password".toCharArray(), "existing-password".toCharArray());
+
+        DemoData.seed(data);
+
+        assertEquals(Set.of(existing), Set.copyOf(data.users().findAll()));
+        assertTrue(data.users().findByEmail(DemoData.DEFAULT_ADMIN_EMAIL).isEmpty());
     }
 }

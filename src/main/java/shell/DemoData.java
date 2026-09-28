@@ -1,5 +1,6 @@
 package shell;
 
+import authentication.AuthenticationService;
 import data.repository.Repositories;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
@@ -8,9 +9,13 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import model.module.Module;
+import util.OperationLog;
 
-/** Named NUS CS curriculum requirements for local demo data. */
+/** Default administrator and NUS CS curriculum data for application startup. */
 public final class DemoData {
+    static final String DEFAULT_ADMIN_EMAIL = "admin@u.nus.edu";
+    static final String DEFAULT_ADMIN_PASSWORD = "12345678";
+
     // Named requirements in the NUS BComp (CS) AY2026/27 curriculum.
     // https://www.comp.nus.edu.sg/cug/per-cohort/cs/cs-26-27/
     private static final List<Course> CS_COURSES = List.of(
@@ -33,6 +38,11 @@ public final class DemoData {
     private DemoData() { }
 
     public static void seed(Repositories repositories) {
+        if (!repositories.authentication().bootstrapComplete()) {
+            new AuthenticationService(repositories, OperationLog.application()).setupInitialAdmin(
+                    "Default Admin", DEFAULT_ADMIN_EMAIL, DEFAULT_ADMIN_PASSWORD.toCharArray(),
+                    DEFAULT_ADMIN_PASSWORD.toCharArray());
+        }
         repositories.lifecycle().withExclusiveAccess(() -> {
             Set<String> codes = repositories.modules().findAll().stream()
                     .map(module -> module.code().toUpperCase(Locale.ROOT)).collect(Collectors.toSet());

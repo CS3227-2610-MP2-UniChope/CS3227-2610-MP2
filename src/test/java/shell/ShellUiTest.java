@@ -27,7 +27,7 @@ class ShellUiTest {
     @TempDir Path directory;
 
     @Test
-    void authenticationScreens_setupLoginPasswordChangeAndStudentSignupWork() throws Exception {
+    void authenticationScreens_defaultAdminLoginPasswordChangeAndStudentSignupWork() throws Exception {
         CountDownLatch started = new CountDownLatch(1);
         Platform.startup(started::countDown);
         assertTrue(started.await(15, TimeUnit.SECONDS));
@@ -38,25 +38,17 @@ class ShellUiTest {
             Stage stage = new Stage();
             try {
                 new UniChopeApplication(repositories).start(stage);
-                assertNotNull(stage.getScene().getRoot().lookup("#setup-admin"));
-                assertNull(stage.getScene().getRoot().lookup("#account-selector"));
-
-                text(stage, "#setup-name", "Root Admin");
-                text(stage, "#setup-email", "root@example.edu");
-                password(stage, "#setup-password", "admin-password-123");
-                password(stage, "#setup-confirm", "admin-password-123");
-                click(stage, "#setup-admin");
                 assertNotNull(stage.getScene().getRoot().lookup("#login-email"));
 
-                var admin = repositories.users().findByEmail("root@example.edu").orElseThrow();
+                var admin = repositories.users().findByEmail(DemoData.DEFAULT_ADMIN_EMAIL).orElseThrow();
                 authentication.provisionAccount(admin.id(), model.user.Role.TUTOR, "Tutor", "tutor@example.edu",
                         "temporary-password-456".toCharArray());
-                text(stage, "#login-email", "root@example.edu");
+                text(stage, "#login-email", DemoData.DEFAULT_ADMIN_EMAIL);
                 password(stage, "#login-password", "wrong-password-123");
                 click(stage, "#sign-in");
                 assertEquals("Email or password is incorrect.", ((Label) stage.getScene().getRoot()
                         .lookup("#login-error")).getText());
-                password(stage, "#login-password", "admin-password-123");
+                password(stage, "#login-password", DemoData.DEFAULT_ADMIN_PASSWORD);
                 click(stage, "#sign-in");
                 assertEquals("Admin workspace", ((Label) stage.getScene().getRoot()
                         .lookup("#role-heading")).getText());
