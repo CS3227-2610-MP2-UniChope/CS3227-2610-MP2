@@ -55,6 +55,35 @@ class AuthenticationServiceTest {
     }
 
     @Test
+    void registerStudent_sevenCharacterPassword_rejectsInput() {
+        var service = new AuthenticationService(repositories(), new OperationLog(clock, event -> { }));
+
+        assertThrows(IllegalArgumentException.class, () -> service.registerStudent("Alice", "alice@example.edu",
+                "pass123".toCharArray(), "pass123".toCharArray()));
+    }
+
+    @Test
+    void registerStudent_128CharacterPassword_acceptsAccount() {
+        var service = new AuthenticationService(repositories(), new OperationLog(clock, event -> { }));
+        String password = "p".repeat(128);
+
+        AuthenticatedUser registered = service.registerStudent("Alice", "alice@example.edu",
+                password.toCharArray(), password.toCharArray());
+
+        assertEquals(Role.STUDENT,
+                service.login(registered.user().email(), password.toCharArray()).user().role());
+    }
+
+    @Test
+    void registerStudent_129CharacterPassword_rejectsInput() {
+        var service = new AuthenticationService(repositories(), new OperationLog(clock, event -> { }));
+        String password = "p".repeat(129);
+
+        assertThrows(IllegalArgumentException.class, () -> service.registerStudent("Alice", "alice@example.edu",
+                password.toCharArray(), password.toCharArray()));
+    }
+
+    @Test
     void login_unknownWrongOrInactiveAccount_usesSamePublicError() {
         var repositories = repositories();
         var service = new AuthenticationService(repositories, new OperationLog(clock, event -> { }));
