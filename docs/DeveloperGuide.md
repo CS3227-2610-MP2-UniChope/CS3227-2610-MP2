@@ -513,7 +513,7 @@ legacy `AdminService.addUser` creates identity records only; it is not the UI's
 account-provisioning path. Deactivation and reactivation preserve credentials,
 assignments and historical records.
 
-Person C's regression coverage is in `src/test/java/admin`, with shared logger
+Kok Seng's regression coverage is in `src/test/java/admin`, with shared logger
 checks in `src/test/java/util`. `AdminServiceTest` checks authorization, guarded
 deactivation/unassignment, validation and failure handling; `AdminQueriesTest`
 checks all-status totals, empty data and retained history. `AdminUiTest` exercises
@@ -521,7 +521,7 @@ the five tabs, including student provisioning and revoked access. Provisioning
 regressions also live in `AuthenticationServiceTest`, beside the shared flow.
 The 29 September local verification passed 152 non-UI tests, 8 desktop tests
 and `installDist` on Windows. These are whole-project totals, not counts of
-tests authored by Person C; they do not establish cross-platform validation.
+tests authored by Kok Seng; they do not establish cross-platform validation.
 
 ### 5.5 Storage and consistency
 

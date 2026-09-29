@@ -1,6 +1,6 @@
-# Person C — contribution and AI interaction log
+# Kok Seng — contribution and AI interaction log
 
-Single cumulative log for the user (Person C), including shared-foundation work and admin-role work. Entries summarize work performed with Codex assistance, not independently authored student work. Generated summaries remain pending user verification. Append future interactions here rather than creating per-session files.
+Single cumulative log for the user (Kok Seng), including shared-foundation work and admin-role work. Entries summarize work performed with Codex assistance, not independently authored student work. Generated summaries remain pending user verification. Append future interactions here rather than creating per-session files.
 
 ## 23 September 2026 — Shared foundation
 
@@ -64,11 +64,11 @@ The PR documents the tests, provisional choices, and remaining scope.
 
 ## 24 September 2026 — Admin planning
 
-### Person C planning interaction
+### Kok Seng planning interaction
 
 Generated summary; pending user verification.
 
-- User identified themselves as Person C and requested latest main plus a feature
+- User confirmed ownership of the Admin role and requested latest main plus a feature
   branch. Updated main to 3436a88 and created codex/admin-role; recorded ownership.
 - User requested a roadmap covering all admin responsibilities, testing at every
   step, minimal disruption to teammates, and clarification of ambiguities.
@@ -147,11 +147,11 @@ Generated summary; pending user verification.
 - No tests/builds rerun; existing coverage and past results distinguished from
   fresh verification. All edits remain local; no submission action performed.
 
-## 29 September 2026 — Person C responsibility audit and completion
+## 29 September 2026 — Kok Seng responsibility audit and completion
 
 Generated summary; pending user verification.
 
-- User requested implementing missing Person C responsibilities: admin accounts,
+- User requested implementing missing Kok Seng responsibilities: admin accounts,
   modules, assignments, system-wide bookings/statistics, UI/tests, JUnit setup,
   and basic logging/monitoring shared by the three roles.
 - Audited the current services, UI, queries, tests and Gradle configuration.
@@ -183,14 +183,14 @@ Generated summary; pending user verification.
   and student status were readable. git diff --check passed. No cross-platform
   execution or release publication performed.
 
-## 29 September 2026 — Person C documentation review
+## 29 September 2026 — Kok Seng documentation review
 
 Generated summary; pending user verification.
 
-- User requested reviewing documentation, changing only Person C material and
+- User requested reviewing documentation, changing only Kok Seng material and
   adding a section titled "Kok Seng Reflection".
 - Reviewed assignment reflection requirements, existing teammate reflections,
-  Person C's cumulative log and current admin guide changes.
+  Kok Seng's cumulative log and current admin guide changes.
 - Appended Kok Seng Reflection without editing either teammate's reflection.
   Draft covers three evidenced agent skills: clarifying testable rules, preserving
   shared contracts, and verifying services/UI/diagnostics. It explicitly does not
@@ -202,10 +202,10 @@ Generated summary; pending user verification.
   earlier edits to the shared authentication overview to preserve teammate text.
 - Left teammate-authored README, release, authentication, student/tutor sections,
   images and reflections unchanged in this review. Existing diagnostic additions
-  concern Person C's shared logging responsibility.
+  concern Kok Seng's shared logging responsibility.
 - Documentation-only review; no application changes or new test execution.
 
-## 29 September 2026 — Publish Person C completion PR
+## 29 September 2026 — Publish Kok Seng completion PR
 
 Generated summary; pending user verification.
 
@@ -213,10 +213,18 @@ Generated summary; pending user verification.
   monitoring consists of in-memory success/failure/delivery-failure counters,
   without a configured persistent log file, dashboard or alerting.
 - User requested creating a PR. Prepared the admin student-provisioning change,
-  regression tests, Person C documentation/reflection and cumulative log for
+  regression tests, Kok Seng documentation/reflection and cumulative log for
   commit and publication from codex/admin-completion to main.
 - Refetched origin; main remains the reviewed base 56a84d5. No existing PR found
   for this branch. Local-only planning files remain excluded.
 - Prior implementation verification: 152 non-UI tests, 8 desktop tests and
   installDist passed on Windows. Subsequent changes were documentation and
   whitespace only; tests were not unnecessarily rerun. Diff whitespace check passed.
+
+## 29 September 2026 — Correct contribution naming
+
+- User rejected the placeholder contributor label and instructed that it must not
+  be used. Replaced it with Kok Seng in our documentation, cumulative log, local
+  project notes and PR wording. Use Kok Seng or the Admin role in future.
+- This is a wording-only correction; application behavior and prior test evidence
+  are unchanged.
