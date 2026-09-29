@@ -67,7 +67,7 @@ final class AdminWorkspace {
         TextField email = field("Email", "user-email");
         ComboBox<Role> role = new ComboBox<>();
         role.setId("user-role");
-        role.getItems().setAll(Role.TUTOR, Role.ADMIN);
+        role.getItems().setAll(Role.STUDENT, Role.TUTOR, Role.ADMIN);
         role.setValue(Role.TUTOR);
         PasswordField temporaryPassword = passwordField("temporary-password");
         PasswordField passwordConfirmation = passwordField("confirm-temporary-password");
@@ -113,7 +113,7 @@ final class AdminWorkspace {
         AppUi.primary(reset);
         AppUi.danger(deactivate);
         return new Tab("Users", AppUi.section("People make it possible",
-                "Create Tutor or Admin accounts, reset passwords, or change account access.",
+                "Create Student, Tutor or Admin accounts, reset passwords, or change account access.",
                 AppUi.filters(AppUi.field("Full name", name), AppUi.field("Email address", email),
                         AppUi.field("Role", role), AppUi.field("Temporary password", temporaryPassword),
                         AppUi.field("Confirm temporary password", passwordConfirmation)),

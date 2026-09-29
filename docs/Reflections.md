@@ -179,3 +179,123 @@ This showed me that when a problem repeats, the better fix is to update the agen
 - Design direction, such as a consistent UI style, should be decided before implementation, with checkpoints along the way.
 - Matching the agent's skills to the task, for example by requiring unit tests with service logic, produces more reliable and easier-to-verify results.
 - Recurring issues should be fixed by improving the agent's skills, not by repeated manual cleanup.
+
+# Kok Seng Reflection
+
+*Draft prepared with Codex assistance from the recorded interactions in
+[my contribution log](../logs/kokseng.md). Pending my verification before
+submission. The examples below describe instruction-guided agent skills used
+during development; they do not claim that three packaged SKILL.md plugins were
+created or evaluated.*
+
+My responsibilities were the Admin role, the testing framework, and a basic
+logging/monitoring utility shared by all three roles. I used a single Codex agent
+with project instructions, explicit business decisions, and test-based checks.
+The shared-foundation work preceded the role implementations; the later SQLite,
+authentication and interface changes also include teammates' contributions.
+
+## 1. Turning ambiguous requirements into testable rules
+
+The first useful skill was requirements clarification before implementation.
+The instruction was to read the assignment and current project plan, identify
+ambiguities, and keep changes within the agreed role responsibilities. A request
+such as “remove a user” was not enough to decide whether historical bookings
+should disappear or whether an unresolved booking should block the action.
+
+On 25 September I confirmed three rules: deactivate instead of permanently
+delete; block affected ACTIVE bookings, including overdue ones, or future
+AVAILABLE slots; and calculate cancellation/completion rates over all bookings,
+with 0% for empty data. These decisions gave the agent concrete acceptance
+criteria instead of leaving product behavior to inference.
+
+Verification was tied to those criteria. AdminServiceTest checks that overdue
+active bookings block deactivation and unassignment, that unrelated records do
+not block an action, and that history survives deactivation. AdminQueriesTest
+checks mixed statuses, empty data, rebookings and same-named tutors. The names
+and assertions of these tests make the decisions reviewable.
+
+The lesson from this example is that a clarification is useful only when it
+changes a checkable requirement. In another project I would record each agreed
+rule beside its corresponding test so later changes cannot silently replace it.
+
+## 2. Preserving shared contracts while integrating role work
+
+The second skill was inspecting the current repository before extending it.
+Project instructions required separate role packages and reuse of the shared
+repository bundle. That mattered because an admin action can affect another
+role: a tutor might publish a slot while an admin is trying to deactivate them.
+Checking for blockers and then writing through unrelated operations would leave
+a gap between the check and the change.
+
+The admin implementation introduced a narrow withExclusiveAccess boundary.
+Initially the fake implementation used its shared lock; SQLite transaction
+semantics were integration work for Person B. The admin tests exercised the
+guarded protocol and rejected unsupported storage rather than reporting a
+successful mutation. This was not evidence of a finished database integration
+at that stage.
+
+On 29 September, reviewing the merged code changed the picture: SQLite,
+authentication and the role workflows were implemented. The responsibility audit
+then found that the Admin form could provision Tutor/Admin accounts but not
+Students. An identity-only addUser method and student self-registration did not
+complete the admin-facing requirement. The fix reused the existing authenticated
+provisioning flow, including credential storage and mandatory password change,
+rather than creating a second account mechanism.
+
+This showed why the agent must compare requirements with the actual UI and
+current contracts, not merely find a similarly named method. Tests verified
+student login after reopening SQLite, duplicate-email rejection, password-change
+requirements and denied access for unauthorized actors.
+
+## 3. Verifying behavior at service, UI and diagnostics boundaries
+
+The third skill was choosing checks that matched the failure being investigated.
+The agent was asked to test implementation work and keep concrete results in the
+log. Pure query tests were appropriate for statistics; service tests covered
+authorization and business rules; the JavaFX workflow checked that those actions
+were reachable through the Admin controls.
+
+The shared OperationLog required another kind of check. A logging failure must
+not turn a successful database write into an apparent failure. OperationLogTest
+and the admin failure-handling tests verify that behavior and the diagnostic
+counters. The later RoleOperationLogTest calls real admin, tutor and student
+services against one SQLite bundle, checks their shared success/failure totals,
+and verifies actor attribution without personal input or exception messages.
+
+The final implementation check on 29 September passed 152 non-UI tests, 8
+desktop tests and installDist on Windows. Those are project-wide totals, not
+tests entirely authored for my role. The generated Admin screenshot was also
+inspected for readable controls. These results support the tested workflows;
+they do not prove macOS/Linux compatibility or provide external monitoring.
+
+I would retain this layered approach, but keep the claim beside its evidence:
+a unit test, a desktop interaction and a build each establish different things.
+The recorded admin work does not demonstrate a test-first red/green cycle, so I
+would not describe it as having followed one.
+
+## Guidance, corrections and future improvements
+
+The agent needed correction on scope and record keeping. It initially created
+a separate admin roadmap document; I asked for it to be removed. I also asked
+for all my interaction summaries to be consolidated into logs/kokseng.md and
+for local planning/memory files to remain out of the repository. These were
+concrete workflow changes rather than new application features.
+
+Persistent notes also needed maintenance. After teammates merged substantial
+changes, descriptions of demo login and in-memory storage were obsolete. During
+the sync, checking out an older local branch removed formerly tracked memory
+files, which the agent then restored. That recovery was avoidable extra work.
+A future sync instruction should require checking historical tracking and
+preserving local-only files before changing branches.
+
+The latest documentation instruction adds another boundary: update my own
+sections without rewriting teammates' work. I would include this ownership rule
+from the start, along with a final comparison of edited files and sections.
+Generated reflections and interaction summaries still need my review; the
+agent's account should not be accepted as my personal experience without checking.
+
+For this project, the most useful customization was a repeatable process:
+read current requirements and contracts, ask about material ambiguities, implement
+within ownership boundaries, run relevant checks, and record observed results
+and remaining limitations. More automation would help only if that evidence
+remains easy to inspect.
