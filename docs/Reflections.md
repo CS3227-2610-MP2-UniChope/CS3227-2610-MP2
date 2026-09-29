@@ -169,7 +169,7 @@ This confirmed that the agent performs better when I tell it how to work, not on
 
 ## 4. Recurring problems should become part of the agent's workflow
 
-During MP1, I did not encounter any unused dependencies, but they began to appear in the implementation of this project. Rather than removing them by hand each time, I added a final step to the agent's skill that rechecks the project's dependencies once the work is complete. In later iterations, the same error did not reappear.
+During MP1, I did not encounter any unused imports, but they began to appear in the code generated for this project. Rather than removing them by hand each time, I added a final step to the agent's skill that rechecks the imports once the work is complete. In later iterations, the same problem did not reappear.
 
 This showed me that when a problem repeats, the better fix is to update the agent's instructions rather than clean up after it each time.
 
