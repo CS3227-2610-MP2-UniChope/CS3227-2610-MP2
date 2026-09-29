@@ -310,13 +310,15 @@ sequenceDiagram
     participant Service as StudentService
     participant Lifecycle as ConsultationLifecycle
     participant DB as SQLite
+
     Student->>UI: Select a block and Book selected
     UI->>Service: book(slotId)
     Service->>Lifecycle: bookAvailableSlot(studentId, slotId, now)
     Lifecycle->>DB: Begin transaction and read current records
     Lifecycle->>Lifecycle: Check student, availability, assignment, and overlap
+
     alt Checks pass
-        Lifecycle->>DB: Save ACTIVE booking and BOOKED slot; commit
+        Lifecycle->>DB: Save ACTIVE booking and BOOKED slot, then commit
         Lifecycle-->>Service: Return booking
         Service-->>UI: Return success
     else Validation or storage failure
@@ -324,6 +326,7 @@ sequenceDiagram
         Lifecycle-->>Service: Throw failure
         Service-->>UI: Propagate failure
     end
+
     UI->>Service: load(slotFilter, bookingFilter)
     Service-->>UI: Refreshed snapshot, or load failure
     UI-->>Student: Update views and show feedback
