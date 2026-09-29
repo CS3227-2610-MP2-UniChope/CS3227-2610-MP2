@@ -506,6 +506,23 @@ Statistics tabs. It refreshes after actions and clears displayed data if the
 admin's access is revoked. `AdminQueries` performs joins and aggregations,
 separate from the service's authorization and validation.
 
+The Users form delegates account creation to `AuthenticationService.provisionAccount`
+for all three roles so the account and hashed credential are stored together, with
+a required password change. Student self-registration remains available. The
+legacy `AdminService.addUser` creates identity records only; it is not the UI's
+account-provisioning path. Deactivation and reactivation preserve credentials,
+assignments and historical records.
+
+Kok Seng's regression coverage is in `src/test/java/admin`, with shared logger
+checks in `src/test/java/util`. `AdminServiceTest` checks authorization, guarded
+deactivation/unassignment, validation and failure handling; `AdminQueriesTest`
+checks all-status totals, empty data and retained history. `AdminUiTest` exercises
+the five tabs, including student provisioning and revoked access. Provisioning
+regressions also live in `AuthenticationServiceTest`, beside the shared flow.
+The 29 September local verification passed 152 non-UI tests, 8 desktop tests
+and `installDist` on Windows. These are whole-project totals, not counts of
+tests authored by Kok Seng; they do not establish cross-platform validation.
+
 ### 5.5 Storage and consistency
 
 The running application uses SQLite for accounts, modules, tutor assignments,
@@ -645,6 +662,11 @@ note contents, and exception messages. Success, failure, and delivery-failure
 counters are available through `metrics()`. A logging delivery failure does
 not change the outcome of a successful operation. Durable log files or a
 monitoring dashboard are not configured by this repository.
+
+These counters are process-local diagnostics, separate from the all-time booking
+statistics stored in SQLite. All three role views use the same application logger.
+`RoleOperationLogTest` exercises admin, tutor and student actions against one
+SQLite bundle and checks shared success/failure counts and event privacy.
 
 ### 5.7 Interface styling
 

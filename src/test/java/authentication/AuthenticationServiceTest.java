@@ -221,4 +221,67 @@ class AuthenticationServiceTest {
         assertArrayEquals(new char[password.length], password);
         assertArrayEquals(new char[confirmation.length], confirmation);
     }
+    @Test
+    void provisionStudentPersistsCredentialsRequiresPasswordChangeAndRejectsDuplicates() {
+        Path database = directory.resolve("provision-student.db");
+        var data = SqliteRepositories.open(database);
+        var service = new AuthenticationService(data, new OperationLog(clock, event -> { }));
+        var admin = service.setupInitialAdmin("Admin", "admin@example.edu",
+                "admin-password-123".toCharArray(), "admin-password-123".toCharArray());
+        char[] password = "temporary-password-123".toCharArray();
+        var student = service.provisionAccount(admin.id(), Role.STUDENT, "New Student",
+                "new-student@example.edu", password);
+        assertArrayEquals(new char[password.length], password);
+
+        var reopened = SqliteRepositories.open(database);
+        var loginService = new AuthenticationService(reopened, new OperationLog(clock, event -> { }));
+        var login = loginService.login(student.email(), "temporary-password-123".toCharArray());
+        assertEquals(student, login.user());
+        assertEquals(Role.STUDENT, login.user().role());
+        assertTrue(login.mustChangePassword());
+        assertFalse(loginService.changePassword(student.id(), "temporary-password-123".toCharArray(),
+                "new-password-456".toCharArray(), "new-password-456".toCharArray()).mustChangePassword());
+        assertThrows(AuthenticationException.class,
+                () -> loginService.login(student.email(), "temporary-password-123".toCharArray()));
+
+        data.users().save(student.withActive(false));
+        char[] duplicatePassword = "duplicate-password-123".toCharArray();
+        assertThrows(IllegalArgumentException.class, () -> service.provisionAccount(admin.id(),
+                Role.STUDENT, "Duplicate", "NEW-STUDENT@example.edu", duplicatePassword));
+        assertArrayEquals(new char[duplicatePassword.length], duplicatePassword);
+        assertEquals(2, data.users().findAll().size());
+        assertFalse(data.users().findById(student.id()).orElseThrow().isActive());
+    }
+
+    @Test
+    void studentProvisioningRejectsUnauthorizedActorsAndInvalidInputsWithoutPartialAccounts() {
+        var data = repositories();
+        var service = new AuthenticationService(data, new OperationLog(clock, event -> { }));
+        var admin = service.setupInitialAdmin("Admin", "admin@example.edu",
+                "admin-password-123".toCharArray(), "admin-password-123".toCharArray());
+        var student = service.registerStudent("Student", "student@example.edu",
+                "student-password-123".toCharArray(), "student-password-123".toCharArray()).user();
+        var tutor = service.provisionAccount(admin.id(), Role.TUTOR, "Tutor", "tutor@example.edu",
+                "temporary-password-123".toCharArray());
+        var pendingAdmin = service.provisionAccount(admin.id(), Role.ADMIN, "Pending", "pending@example.edu",
+                "temporary-password-123".toCharArray());
+        for (var actor : java.util.List.of(student.id(), tutor.id(), pendingAdmin.id(), UUID.randomUUID())) {
+            char[] password = "temporary-password-123".toCharArray();
+            assertThrows(SecurityException.class, () -> service.provisionAccount(actor, Role.STUDENT,
+                    "Forbidden", "forbidden@example.edu", password));
+            assertArrayEquals(new char[password.length], password);
+        }
+        assertThrows(IllegalArgumentException.class, () -> service.provisionAccount(admin.id(), null,
+                "Invalid", "invalid@example.edu", "temporary-password-123".toCharArray()));
+        assertThrows(IllegalArgumentException.class, () -> service.provisionAccount(admin.id(), Role.STUDENT,
+                "Invalid", "invalid@example.edu", "short".toCharArray()));
+        assertThrows(IllegalArgumentException.class, () -> service.provisionAccount(admin.id(), Role.STUDENT,
+                " ", "invalid@example.edu", "temporary-password-123".toCharArray()));
+        data.users().save(admin.withActive(false));
+        assertThrows(SecurityException.class, () -> service.provisionAccount(admin.id(), Role.STUDENT,
+                "Forbidden", "forbidden@example.edu", "temporary-password-123".toCharArray()));
+        assertEquals(4, data.users().findAll().size());
+        assertTrue(data.authentication().findCredentialByEmail("invalid@example.edu").isEmpty());
+        assertTrue(data.authentication().findCredentialByEmail("forbidden@example.edu").isEmpty());
+    }
 }

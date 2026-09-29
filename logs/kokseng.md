@@ -1,6 +1,6 @@
-# Person C — contribution and AI interaction log
+# Kok Seng — contribution and AI interaction log
 
-Single cumulative log for the user (Person C), including shared-foundation work and admin-role work. Entries summarize work performed with Codex assistance, not independently authored student work. Generated summaries remain pending user verification. Append future interactions here rather than creating per-session files.
+Single cumulative log for the user (Kok Seng), including shared-foundation work and admin-role work. Entries summarize work performed with Codex assistance, not independently authored student work. Generated summaries remain pending user verification. Append future interactions here rather than creating per-session files.
 
 ## 23 September 2026 — Shared foundation
 
@@ -64,11 +64,11 @@ The PR documents the tests, provisional choices, and remaining scope.
 
 ## 24 September 2026 — Admin planning
 
-### Person C planning interaction
+### Kok Seng planning interaction
 
 Generated summary; pending user verification.
 
-- User identified themselves as Person C and requested latest main plus a feature
+- User confirmed ownership of the Admin role and requested latest main plus a feature
   branch. Updated main to 3436a88 and created codex/admin-role; recorded ownership.
 - User requested a roadmap covering all admin responsibilities, testing at every
   step, minimal disruption to teammates, and clarification of ambiguities.
@@ -126,3 +126,105 @@ Generated summary and evidence remain pending user verification. Real persistenc
 - User asked whether Java 25 is used. Inspected Gradle task toolchains: compilation, tests, and application launch resolve to the provisioned Java 25 JDK; Java 21 only launches Gradle in the suggested local commands.
 - Confirmed to the user that in-memory changes reset on application restart and that Person B's persistent storage integration is outstanding.
 - User requested committing, pushing, and opening a PR to main for the admin implementation. The branch also includes the previously authorized removal of planning documents from Git and consolidation of the contribution log. Checked staged scope to exclude local-only memory files; existing test evidence reports 37 unit and 2 UI tests passing.
+
+## 29 September 2026 — Synchronize main and local project memory
+
+Generated summary; pending user verification.
+
+- User requested pulling main and refreshing local docs for teammates' changes.
+- Fetched origin; fast-forwarded local codex/admin-role and main to 56a84d5,
+  leaving main checked out. No conflict, commit, push or remote edit.
+- Reviewed history, source/contracts, build, guides and test inventory. Confirmed
+  admin PR #5 merged; recorded student/tutor workflows, SQLite transactions,
+  authentication, reactivation, UI and packaging changes.
+- GitHub reports public/default main, published v1.0 with UniChope.jar, and Pages
+  built from main:/docs. No remote master or tracked Actions workflow found.
+- Updated local AGENTS.md, PROJECT_PLAN.md and docs/Foundation.md. Checkout of
+  historical main removed the local memory files; restored them, preserving
+  assignment requirements and incorporating current decisions.
+- Flagged stale README login and DeveloperGuide packaging text in local notes;
+  left shared published guides unchanged. Did not infer new ownership.
+- No tests/builds rerun; existing coverage and past results distinguished from
+  fresh verification. All edits remain local; no submission action performed.
+
+## 29 September 2026 — Kok Seng responsibility audit and completion
+
+Generated summary; pending user verification.
+
+- User requested implementing missing Kok Seng responsibilities: admin accounts,
+  modules, assignments, system-wide bookings/statistics, UI/tests, JUnit setup,
+  and basic logging/monitoring shared by the three roles.
+- Audited the current services, UI, queries, tests and Gradle configuration.
+  Existing module management, deactivation safeguards, assignments/unassignment,
+  all-status bookings, all-time statistics, JUnit and shared OperationLog were
+  already implemented. No hard deletion or new statistics definitions introduced.
+- Found the Admin Users form and AuthenticationService only allowed provisioning
+  Tutor/Admin accounts; student self-registration did not satisfy admin creation.
+- Created local branch codex/admin-completion. Added Student to the role selector
+  and authenticated provisioning switch. Uses existing Argon2id and transactional
+  account/credential creation, clearing password buffers and requiring a password
+  change on first sign-in. Existing authentication authorization stays in place.
+- Added tests for student provisioning, SQLite reopening, required password change,
+  duplicate inactive-account emails, invalid input and rejected actors. Extended
+  the Admin desktop workflow for mismatched passwords, student creation/sign-in,
+  cleared password fields and deactivation blocking sign-in.
+- Added RoleOperationLogTest using real SQLite and all three role services to
+  verify shared success/failure counters, actor attribution and omission of
+  personal data/error messages. Basic monitoring remains process-local metrics;
+  durable logs or an external dashboard were not required or added.
+- Updated UserGuide and DeveloperGuide for student provisioning and diagnostics.
+  Retained existing local sync log changes. No commit, push or PR requested.
+- Initial Gradle invocation failed because JAVA_HOME pointed to an unusable
+  installation. Used the installed JDK 21 only to launch Gradle; project toolchain
+  remains Java 25. Baseline test task passed before final verification.
+- Final verification: Gradle test, uiTest and installDist succeeded on Windows.
+  XML reports show 152 non-UI tests and 8 desktop tests, zero failures/errors/skips.
+  Inspected the generated admin-student-created screenshot at 950 x 620; controls
+  and student status were readable. git diff --check passed. No cross-platform
+  execution or release publication performed.
+
+## 29 September 2026 — Kok Seng documentation review
+
+Generated summary; pending user verification.
+
+- User requested reviewing documentation, changing only Kok Seng material and
+  adding a section titled "Kok Seng Reflection".
+- Reviewed assignment reflection requirements, existing teammate reflections,
+  Kok Seng's cumulative log and current admin guide changes.
+- Appended Kok Seng Reflection without editing either teammate's reflection.
+  Draft covers three evidenced agent skills: clarifying testable rules, preserving
+  shared contracts, and verifying services/UI/diagnostics. It explicitly does not
+  claim packaged skills or a demonstrated test-first red/green process.
+- Included actual corrections (roadmap removal, log consolidation, local memory
+  handling), evidence limits and future improvements, pending personal verification.
+- Kept the student-provisioning update in the Admin UserGuide section and added
+  test/evidence details to the DeveloperGuide Admin section. Reverted only our
+  earlier edits to the shared authentication overview to preserve teammate text.
+- Left teammate-authored README, release, authentication, student/tutor sections,
+  images and reflections unchanged in this review. Existing diagnostic additions
+  concern Kok Seng's shared logging responsibility.
+- Documentation-only review; no application changes or new test execution.
+
+## 29 September 2026 — Publish Kok Seng completion PR
+
+Generated summary; pending user verification.
+
+- Confirmed to the user that Admin, Tutor and Student use the shared OperationLog;
+  monitoring consists of in-memory success/failure/delivery-failure counters,
+  without a configured persistent log file, dashboard or alerting.
+- User requested creating a PR. Prepared the admin student-provisioning change,
+  regression tests, Kok Seng documentation/reflection and cumulative log for
+  commit and publication from codex/admin-completion to main.
+- Refetched origin; main remains the reviewed base 56a84d5. No existing PR found
+  for this branch. Local-only planning files remain excluded.
+- Prior implementation verification: 152 non-UI tests, 8 desktop tests and
+  installDist passed on Windows. Subsequent changes were documentation and
+  whitespace only; tests were not unnecessarily rerun. Diff whitespace check passed.
+
+## 29 September 2026 — Correct contribution naming
+
+- User rejected the placeholder contributor label and instructed that it must not
+  be used. Replaced it with Kok Seng in our documentation, cumulative log, local
+  project notes and PR wording. Use Kok Seng or the Admin role in future.
+- This is a wording-only correction; application behavior and prior test evidence
+  are unchanged.

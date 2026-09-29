@@ -109,13 +109,14 @@ public final class AuthenticationService {
         try {
             return execute("auth.account.provision", adminId, id, () -> {
                 requireActiveAdmin(adminId);
-                if (role != Role.TUTOR && role != Role.ADMIN) {
-                    throw new IllegalArgumentException("Admins can provision tutor or admin accounts only");
-                }
+                if (role == null) { throw new IllegalArgumentException("Select an account role"); }
                 validatePassword(temporaryPassword);
                 String hash = hasher.hash(temporaryPassword);
-                User account = role == Role.TUTOR
-                        ? new Tutor(id, name, email, true) : new Admin(id, name, email, true);
+                User account = switch (role) {
+                    case STUDENT -> new Student(id, name, email, true);
+                    case TUTOR -> new Tutor(id, name, email, true);
+                    case ADMIN -> new Admin(id, name, email, true);
+                };
                 return data.lifecycle().withExclusiveAccess(() -> {
                     requireActiveAdmin(adminId);
                     return data.authentication().createAccount(account, hash, true);

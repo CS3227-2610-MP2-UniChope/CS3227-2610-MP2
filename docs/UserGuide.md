@@ -233,9 +233,9 @@ account. Tables retain inactive records and booking history when relevant.
 
 ### 6.1 Users
 
-Enter a name and email, choose TUTOR or ADMIN, provide a temporary password
+Enter a name and email, choose STUDENT, TUTOR or ADMIN, provide a temporary password
 and confirmation, then press **Create account**. Give the temporary password
-to the account holder; they must change it at first sign-in. Students create
+to the account holder; they must change it at first sign-in. Students can also create
 their own accounts from the sign-in screen. Names must not be blank. Email
 addresses must be valid and unique without regard to case, including among
 inactive accounts.

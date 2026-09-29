@@ -46,7 +46,7 @@ class AdminUiTest {
                 select(root, tabs, 0);
                 field(root, "user-name").setText("New tutor");
                 field(root, "user-email").setText("new@example.edu");
-                ((ComboBox<Role>) root.lookup("#user-role")).setValue(Role.TUTOR);
+                AdminUiTest.<Role>typedChoice(root, "user-role").setValue(Role.TUTOR);
                 ((PasswordField) root.lookup("#temporary-password")).setText("new-temporary-password-123");
                 ((PasswordField) root.lookup("#confirm-temporary-password")).setText("new-temporary-password-123");
                 button(root, "add-user").fire();
@@ -93,6 +93,32 @@ class AdminUiTest {
                 assertTrue(auth.login(added.email(), "new-temporary-password-123".toCharArray())
                         .mustChangePassword());
                 snapshot(stage, "users");
+
+                ComboBox<Role> roles = typedChoice(root, "user-role");
+                assertTrue(roles.getItems().contains(Role.STUDENT));
+                roles.setValue(Role.STUDENT);
+                field(root, "user-name").setText("Admin-created student");
+                field(root, "user-email").setText("created-student@example.edu");
+                field(root, "temporary-password").setText("student-temporary-123");
+                field(root, "confirm-temporary-password").setText("mismatched-password");
+                button(root, "add-user").fire();
+                assertTrue(message(root).contains("do not match"));
+                assertTrue(f.data.users().findByEmail("created-student@example.edu").isEmpty());
+                field(root, "temporary-password").setText("student-temporary-123");
+                field(root, "confirm-temporary-password").setText("student-temporary-123");
+                button(root, "add-user").fire();
+                User createdStudent = f.data.users().findByEmail("created-student@example.edu").orElseThrow();
+                assertEquals(Role.STUDENT, createdStudent.role());
+                assertTrue(auth.login(createdStudent.email(), "student-temporary-123".toCharArray())
+                        .mustChangePassword());
+                assertTrue(field(root, "temporary-password").getText().isEmpty());
+                assertTrue(field(root, "confirm-temporary-password").getText().isEmpty());
+                users.getSelectionModel().select(createdStudent);
+                button(root, "deactivate-user").fire();
+                assertFalse(f.data.users().findById(createdStudent.id()).orElseThrow().isActive());
+                assertThrows(AuthenticationException.class,
+                        () -> auth.login(createdStudent.email(), "student-temporary-123".toCharArray()));
+                snapshot(stage, "student-created");
 
                 select(root, tabs, 1);
                 field(root, "module-code").setText("CS9999");
