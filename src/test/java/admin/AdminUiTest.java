@@ -1,6 +1,7 @@
 package admin;
 
 import authentication.AuthenticationService;
+import authentication.AuthenticationException;
 import java.nio.file.Path;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.FutureTask;
@@ -77,6 +78,20 @@ class AdminUiTest {
                 users.getSelectionModel().select(added);
                 button(root, "deactivate-user").fire();
                 assertFalse(f.data.users().findById(added.id()).orElseThrow().isActive());
+                assertThrows(AuthenticationException.class,
+                        () -> auth.login(added.email(), "new-temporary-password-123".toCharArray()));
+                users.getSelectionModel().select(users.getItems().stream()
+                        .filter(user -> user.id().equals(added.id())).findFirst().orElseThrow());
+                accepted.set(false);
+                button(root, "reactivate-user").fire();
+                assertFalse(f.data.users().findById(added.id()).orElseThrow().isActive());
+                accepted.set(true);
+                users.getSelectionModel().select(users.getItems().stream()
+                        .filter(user -> user.id().equals(added.id())).findFirst().orElseThrow());
+                button(root, "reactivate-user").fire();
+                assertTrue(f.data.users().findById(added.id()).orElseThrow().isActive());
+                assertTrue(auth.login(added.email(), "new-temporary-password-123".toCharArray())
+                        .mustChangePassword());
                 snapshot(stage, "users");
 
                 select(root, tabs, 1);

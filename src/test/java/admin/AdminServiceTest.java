@@ -32,6 +32,7 @@ class AdminServiceTest {
         f.data.users().save(f.actor.withActive(false));
         assertThrows(SecurityException.class, f.service::load);
         assertThrows(SecurityException.class, () -> f.service.addUser(Role.STUDENT, "No", "no@example.edu"));
+        assertThrows(SecurityException.class, () -> f.service.reactivateUser(f.tutor.id()));
         assertEquals(1, f.data.modules().findAll().size());
         assertEquals(3, f.data.users().findAll().size());
     }
@@ -62,6 +63,23 @@ class AdminServiceTest {
         assertFalse(f.data.users().findById(f.student.id()).orElseThrow().isActive());
         assertThrows(IllegalArgumentException.class, () -> f.service.deactivateUser(f.actor.id()));
         assertThrows(IllegalArgumentException.class, () -> f.service.deactivateUser(UUID.randomUUID()));
+    }
+
+    @Test
+    void reactivationRestoresStudentAndTutorWithoutLosingHistoryOrAssignments() {
+        var assignment = f.service.assign(f.tutor.id(), f.module.id());
+        var slot = f.slot(f.clock.instant().minusSeconds(3600), SlotStatus.COMPLETED);
+        var booking = f.booking(slot, BookingStatus.COMPLETED);
+        f.service.deactivateUser(f.student.id());
+        f.service.deactivateUser(f.tutor.id());
+
+        assertEquals(f.student, f.service.reactivateUser(f.student.id()));
+        assertEquals(f.tutor, f.service.reactivateUser(f.tutor.id()));
+        assertEquals(f.tutor, f.service.reactivateUser(f.tutor.id()));
+        assertEquals(booking, f.data.bookings().findById(booking.id()).orElseThrow());
+        assertEquals(List.of(assignment), f.data.modules().findAssignments());
+        assertThrows(IllegalArgumentException.class, () -> f.service.reactivateUser(f.actor.id()));
+        assertThrows(IllegalArgumentException.class, () -> f.service.reactivateUser(UUID.randomUUID()));
     }
 
     @Test

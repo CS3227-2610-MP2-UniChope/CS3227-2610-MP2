@@ -67,6 +67,17 @@ public final class AdminService {
         });
     }
 
+    public User reactivateUser(UUID id) {
+        return execute("admin.user.reactivate", id, () -> {
+            User target = data.users().findById(id)
+                    .orElseThrow(() -> new IllegalArgumentException("User no longer exists"));
+            if (target.role() == Role.ADMIN) {
+                throw new IllegalArgumentException("Admin accounts cannot be changed here");
+            }
+            return data.users().save(target.withActive(true));
+        });
+    }
+
     public Module createModule(String code, String name) {
         UUID id = UUID.randomUUID();
         return execute("admin.module.add", id, () -> data.modules().save(new Module(id, code, name, true)));
