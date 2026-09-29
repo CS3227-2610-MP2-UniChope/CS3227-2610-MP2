@@ -103,15 +103,21 @@ final class AdminWorkspace {
                 service.deactivateUser(selected.id());
             }
         }));
+        Button reactivate = button("Reactivate selected", "reactivate-user", () -> act(() -> {
+            User selected = selected(users);
+            if (confirm.test("Reactivate " + selected.name() + "? This account will be able to sign in again.")) {
+                service.reactivateUser(selected.id());
+            }
+        }));
         AppUi.primary(add);
         AppUi.primary(reset);
         AppUi.danger(deactivate);
         return new Tab("Users", AppUi.section("People make it possible",
-                "Create Tutor or Admin accounts with a temporary password, or reset an existing account.",
+                "Create Tutor or Admin accounts, reset passwords, or change account access.",
                 AppUi.filters(AppUi.field("Full name", name), AppUi.field("Email address", email),
                         AppUi.field("Role", role), AppUi.field("Temporary password", temporaryPassword),
                         AppUi.field("Confirm temporary password", passwordConfirmation)),
-                users, add, reset, deactivate));
+                users, add, reset, deactivate, reactivate));
     }
 
     private Tab modulesTab() {

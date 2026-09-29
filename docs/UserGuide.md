@@ -248,6 +248,11 @@ A student with an ACTIVE booking cannot be deactivated. A tutor with an
 ACTIVE booking or future AVAILABLE slot cannot be deactivated. Overdue
 ACTIVE bookings still block the action.
 
+To restore a deactivated Student or Tutor account, select its inactive row,
+press **Reactivate selected**, and confirm. Reactivation keeps the same account,
+password, assignments, and history. The user can sign in again with their
+existing credentials. Admin accounts cannot be changed with these buttons.
+
 ### 6.2 Modules
 
 Enter a code and name, then press **Create**. Codes are unique without
