@@ -205,19 +205,162 @@ flowchart TD
 
 ### 5.2 Student
 
-`StudentService.load(SlotFilter, BookingFilter)` returns available slots and
-the current student's booking history. Available slots must be future,
-AVAILABLE, attached to active tutor/module records and a valid assignment,
-and free of an ACTIVE booking. Module filters match code or name; tutor
-filters match name. Text matching trims input and ignores case. Both date
-filters use the SGT calendar day of the slot start.
+The student implementation separates JavaFX interaction, read queries, and
+atomic booking transitions. `StudentMainView.create(...)` checks that the
+supplied user is an active Student, creates `StudentService` with the shared
+repository bundle, student ID, UTC clock, and application logger, and supplies
+the workspace with sign-out and cancellation-confirmation callbacks.
 
-`StudentWorkspace` owns the Available slots and My bookings tabs.
-`StudentSlotBrowser` implements the calendar-first workflow, preserving the
-chosen date across course/tutor searches. `SlotTimeline` lays out time blocks
-and gives overlapping choices separate rows. The selected block's details
-appear beside the booking action. My bookings has independent course, tutor,
-and date filters and an explicit cancellation confirmation.
+#### Components and data flow
+
+| Component | Responsibility |
+| --- | --- |
+| `StudentMainView` | Compose the student service and workspace; show the cancellation confirmation dialog |
+| `StudentWorkspace` | Own Available slots and My bookings tabs, invoke actions, refresh both views, and display feedback |
+| `StudentSlotBrowser` | Maintain the displayed month, selected day, and course/tutor search fields |
+| `SlotTimeline` | Position selectable time blocks and allocate separate lanes to overlapping options |
+| `StudentService` | Build display snapshots, enforce read access, delegate mutations, and log action outcomes |
+| `SlotFilter` / `BookingFilter` | Hold independent optional text and SGT-date criteria |
+| `ConsultationLifecycle` | Revalidate booking/cancellation rules and update booking and slot records atomically |
+
+```mermaid
+flowchart LR
+    Main[StudentMainView] -->|creates| Workspace[StudentWorkspace]
+    Workspace --> Browser[StudentSlotBrowser]
+    Browser --> Timeline[SlotTimeline]
+    Workspace -->|load, book, cancel| Service[StudentService]
+    Service -->|Snapshot: SlotRow and BookingRow lists| Workspace
+    Service --> Repositories[Repositories]
+    Repositories --> Lifecycle[ConsultationLifecycle]
+    Lifecycle --> DB[(SQLite)]
+    Service --> Log[OperationLog]
+```
+
+`SlotRow` contains the slot ID, module code, tutor name, and start/end instants.
+`BookingRow` contains the booking ID, the same display fields, and booking status.
+`Snapshot` groups the available-slot and booking-history lists, so the workspace
+does not join repository entities itself.
+
+#### Queries and filtering
+
+`StudentService.load(SlotFilter, BookingFilter)` runs within
+`withExclusiveAccess(...)` and rechecks the stored account's Student role and
+active status on every load. It joins users, modules, assignments, slots, and
+bookings to build one snapshot. An available slot must:
+
+- Have status `AVAILABLE` and start strictly after the injected clock's current instant.
+- Belong to an active Tutor and an active module with a current tutor-module assignment.
+- Have no `ACTIVE` booking referencing its ID.
+
+Both filter records normalize null text to an empty string, strip surrounding
+whitespace, and lowercase text using `Locale.ROOT`. Course searches match a
+substring of the module code or name; tutor searches match a substring of the
+tutor's name. A null date means any date. Date comparisons and `today()` use
+`Asia/Singapore`, independently of the computer's time zone.
+
+Available rows sort by start instant, then slot ID. Booking history includes
+only the current student's records, across all statuses, sorted by start instant
+then booking ID, with missing start times last. Missing module/tutor references
+display as `Unavailable`; a missing slot produces null times. Such records remain
+visible with empty filters, but cannot match criteria requiring missing fields.
+The booking-history filters are independent of the available-slot filters.
+
+#### Calendar and timetable
+
+`StudentSlotBrowser` opens at the current SGT month. It groups available rows by
+their start date to show daily counts, disables past dates, and prevents backward
+navigation beyond the current month. Selecting a date refreshes the snapshot and
+opens that day's timetable. The browser sends a null date in its `SlotFilter`;
+it applies the selected day locally, retaining the wider set of rows for calendar
+counts. The service also supports explicit date filtering for other callers.
+
+Course/tutor search and Clear retain the selected day. Returning to Calendar
+clears those text filters and displays the selected day's month. Each render
+recreates the timetable and clears the selected slot, so **Book selected** stays
+disabled until a block is selected again. Selecting a block displays its course,
+tutor, and SGT times and binds the booking action to its slot ID.
+
+`SlotTimeline.lanes(...)` uses greedy interval partitioning: sort by module,
+tutor, start, and ID, then reuse the first lane with the same module and tutor
+whose last slot ends at or before the next slot starts. Otherwise, create a new
+lane. Adjacent slots can share a lane; overlapping slots remain independently
+selectable. The horizontal scale covers at least 08:00–18:00, expands for earlier
+or later slots, and labels times after midnight with a day offset. Module codes
+map deterministically to five colour classes; tooltips and accessible text also
+identify each block.
+
+These lanes organize available choices, not the student's personal schedule.
+Availability queries do not hide slots that overlap the student's existing
+bookings; the lifecycle rejects such conflicts when booking is attempted.
+
+#### Booking and cancellation
+
+`StudentService.book(slotId)` delegates to
+`bookAvailableSlot(studentId, slotId, now)`. Inside one SQLite transaction, the
+lifecycle rechecks the active Student, the availability conditions above, and
+overlap with the student's `ACTIVE` bookings. Two intervals overlap when
+`newStart < existingEnd && existingStart < newEnd`, so back-to-back consultations
+are allowed. A successful operation creates an `ACTIVE` booking and changes the
+slot to `BOOKED`; a failed operation rolls back its writes.
+
+```mermaid
+sequenceDiagram
+    actor Student
+    participant UI as StudentWorkspace / StudentSlotBrowser
+    participant Service as StudentService
+    participant Lifecycle as ConsultationLifecycle
+    participant DB as SQLite
+    Student->>UI: Select a block and Book selected
+    UI->>Service: book(slotId)
+    Service->>Lifecycle: bookAvailableSlot(studentId, slotId, now)
+    Lifecycle->>DB: Begin transaction and read current records
+    Lifecycle->>Lifecycle: Check student, availability, assignment, and overlap
+    alt Checks pass
+        Lifecycle->>DB: Save ACTIVE booking and BOOKED slot; commit
+        Lifecycle-->>Service: Return booking
+        Service-->>UI: Return success
+    else Validation or storage failure
+        Lifecycle->>DB: Roll back transaction
+        Lifecycle-->>Service: Throw failure
+        Service-->>UI: Propagate failure
+    end
+    UI->>Service: load(slotFilter, bookingFilter)
+    Service-->>UI: Refreshed snapshot, or load failure
+    UI-->>Student: Update views and show feedback
+```
+
+For cancellation, `StudentWorkspace` first requires a selected `ACTIVE` booking
+and asks for confirmation. Dismissing the dialog performs no mutation.
+`StudentService.cancel(bookingId)` delegates to `cancelActiveBooking(...)`, which
+rechecks that the actor is an active Student, owns the booking, and has an
+`ACTIVE` booking paired with a `BOOKED` slot that starts strictly in the future.
+The transaction changes the booking to `CANCELLED` and the slot to `AVAILABLE`.
+The old booking remains in history; rebooking creates a new booking record.
+
+Both service actions record success or failure through `OperationLog`, using
+`student.booking.create` with the slot ID and `student.booking.cancel` with the
+booking ID. The lifecycle is the final validation boundary even if the UI shows
+stale availability or the account has been deactivated since sign-in.
+
+#### Refresh, errors, and verification
+
+The workspace refreshes both tabs after successful and failed mutations. On
+success it displays `Done` if reloading also succeeds; after an action failure
+it attempts a refresh before displaying the original error. Validation and
+access errors display their messages; other runtime failures display a generic
+storage error. A failed load clears available slots, and a `SecurityException`
+also clears booking history. Other load failures leave the previous history
+visible. Calls are synchronous on the JavaFX thread.
+
+Existing tests cover these boundaries:
+
+| Test class | Coverage |
+| --- | --- |
+| `StudentServiceTest` | Booking/cancellation state changes and history, independent filters and SGT dates, overlap, ownership, inactive accounts/entities, missing assignment, cancellation after start, and competing bookings for one slot |
+| `SlotTimelineTest` | Separate lanes for overlapping choices and different course/tutor pairs; shared lanes for adjacent slots |
+| `StudentUiTest` | Calendar selection, timetable filtering, booking, cancellation confirmation, refresh, and desktop snapshots |
+
+The service and lane tests run with `test`; the desktop test runs with `uiTest`.
 
 ### 5.3 Tutor
 
