@@ -5,6 +5,15 @@ plugins {
 
 repositories { mavenCentral() }
 
+// Keep each JavaFX platform intact: native library names overlap across CPUs.
+def releasePlatforms = ['win', 'linux', 'linux-aarch64', 'mac', 'mac-aarch64']
+releasePlatforms.each { platform ->
+    configurations.create("releaseFx_${platform}") {
+        canBeConsumed = false
+        transitive = false
+    }
+}
+
 java {
     toolchain { languageVersion = JavaLanguageVersion.of(25) }
 }
@@ -20,12 +29,39 @@ application {
 }
 
 dependencies {
+    releasePlatforms.each { platform ->
+        ['base', 'graphics', 'controls'].each { module ->
+            add("releaseFx_${platform}", "org.openjfx:javafx-${module}:25.0.2:${platform}")
+        }
+    }
     implementation 'org.xerial:sqlite-jdbc:3.50.3.0'
     implementation 'de.mkammerer:argon2-jvm:2.12'
     testImplementation platform('org.junit:junit-bom:5.13.4')
     testImplementation 'org.junit.jupiter:junit-jupiter'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
+tasks.named('jar') { archiveClassifier = 'app' }
+
+tasks.register('universalJar', Jar) {
+    description = 'Builds one runnable JAR for Windows, macOS and Linux.'
+    group = 'build'
+    archiveFileName = 'UniChope.jar'
+    manifest {
+        attributes 'Main-Class': 'shell.UniversalLauncher',
+                'Enable-Native-Access': 'ALL-UNNAMED'
+    }
+    from(sourceSets.main.output) { include 'shell/UniversalLauncher.class' }
+    into('lib/common') {
+        from tasks.named('jar')
+        from(configurations.runtimeClasspath.filter { !it.name.startsWith('javafx-') })
+    }
+    releasePlatforms.each { platform ->
+        into("lib/${platform}") { from configurations["releaseFx_${platform}"] }
+    }
+}
+
+tasks.named('assemble') { dependsOn tasks.named('universalJar') }
 
 tasks.withType(JavaCompile).configureEach {
     options.encoding = 'UTF-8'

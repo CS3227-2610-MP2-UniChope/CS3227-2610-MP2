@@ -29,9 +29,29 @@ consultation workspace; Student can book and cancel consultations. All roles can
 The demo seeds active modules from the NUS CS AY2026/27 curriculum, while preserving
 modules already stored in the database.
 
-`installDist` creates `build/install/UniChope/` containing launchers and the current
-platform's runtime dependencies. This is a development distribution, not the final
-cross-platform release JAR required by the assignment.
+## Single cross-platform JAR
+
+Build with `./gradlew universalJar` (macOS/Linux) or
+`.\gradlew.bat universalJar` (Windows). The output is **`build/libs/UniChope.jar`**;
+`build` and `assemble` also create it. Copy just this file to the target computer.
+
+With **Java 25** installed, run from a writable folder:
+
+```text
+java -jar UniChope.jar
+```
+
+The same JAR bundles JavaFX, SQLite, and Argon2 dependencies for Windows x64,
+macOS Intel/Apple Silicon, and Linux x64/ARM64. The Java installation must match
+one of these architectures. A graphical desktop is required; Linux also needs
+the system libraries required by JavaFX (including GTK 3). Java itself is not bundled.
+The launcher extracts the selected dependencies into the system temporary directory
+and schedules them for deletion on exit. Data remains in `data/unichope.db` relative
+to the folder from which you launch the app. No Gradle or separate JavaFX installation
+is needed on the target computer.
+
+`installDist` creates `build/install/UniChope/` containing launchers and only the
+current platform's runtime dependencies, for local development.
 
 The application uses one SQLite-backed repository bundle for every role. Tests use
 temporary SQLite databases; repository interfaces keep storage separate from role
