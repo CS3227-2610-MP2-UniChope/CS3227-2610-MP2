@@ -147,10 +147,35 @@ log with the code changes and test output, so the record stays useful for both t
 
 
 
-# Tieu Trong Phuc's Reflection
+# Tieu Trong Phuc Reflection
 
-Agentic AI was particularly useful for diagnosing a dependency-related bug. When a teammate forgot to update the database schema, I initially thought the application could not download a new dependency and struggled to identify the actual cause. The agent helped trace the failure to the outdated schema. Using the agent earlier would have saved me considerable debugging time.
+## 1. Agents are excel at diagnosing problems outside the code I am looking at
 
-If I were to redesign the UI, I would choose a consistent visual style before implementation. The references in `design.md`, from [Refero](https://styles.refero.design/), became helpful only after I had already spent hours experimenting, and the resulting UI still lacked consistency. This experience taught me that even a capable agent needs explicit instructions and checkpoints.
+While working on the project, I ran into a dependency-related bug. A teammate had forgotten to update the database schema, but I assumed the application was failing to download a new dependency. I spent a long time investigating the wrong cause. When I finally asked the agent to investigate, it traced the failure back to the outdated schema.
 
-Learned from MP1, I matched the agent's skills to each task. For service-layer logic, I instructed the agent to create unit tests alongside the implementation. I knew this approach was working when the agent automatically produced well written test cases that clearly verified the behaviour of the newly implemented services.
+This showed me that an agent can catch a wrong assumption because it inspects the actual evidence rather than the theory I have already committed to. I should have brought it in as soon as my first debugging attempts stalled, since doing so earlier would have saved considerable time.
+
+## 2. Design decisions need to be made before implementation, not during it
+
+If I were to redesign the UI, I would choose a consistent visual style before writing any code. The references in `design.md`, taken from [Refero](https://styles.refero.design/), only became useful after I had already spent hours experimenting, and the resulting UI still lacked consistency. Because the agent had no shared style to work from in the early stages, each change it made reflected the prompt in front of it rather than an overall design.
+
+This taught me that even a capable agent needs explicit instructions and checkpoints. In future projects, I should settle the design direction first, put it in a reference file, and review the UI at set checkpoints instead of correcting inconsistencies afterward.
+
+## 3. Matching the agent's skills to each task improves the results
+
+Building on what I learned from MP1, I matched the agent's skills to each task. For service-layer logic, I instructed the agent to write unit tests alongside the implementation. I knew this approach was working when the agent automatically produced well-written test cases that clearly verified the behavior of the newly implemented services.
+
+This confirmed that the agent performs better when I tell it how to work, not only what to build. Asking for tests as part of the task also gave me a quick way to verify the generated code.
+
+## 4. Recurring problems should become part of the agent's workflow
+
+During MP1, I did not encounter any unused dependencies, but they began to appear in the implementation of this project. Rather than removing them by hand each time, I added a final step to the agent's skill that rechecks the project's dependencies once the work is complete. In later iterations, the same error did not reappear.
+
+This showed me that when a problem repeats, the better fix is to update the agent's instructions rather than clean up after it each time.
+
+## Overall
+
+- Agents are especially helpful for debugging, and I should use them earlier instead of struggling with my own assumptions.
+- Design direction, such as a consistent UI style, should be decided before implementation, with checkpoints along the way.
+- Matching the agent's skills to the task, for example by requiring unit tests with service logic, produces more reliable and easier-to-verify results.
+- Recurring issues should be fixed by improving the agent's skills, not by repeated manual cleanup.
